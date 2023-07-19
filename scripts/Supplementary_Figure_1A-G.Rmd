@@ -1,11 +1,11 @@
-title: "Supplementary Figure 1A-G
-"
+---
+title: "Supplementary Figure 1A-G"
 author: "Daan Kloosterman"
 date: "8/12/2021"
 output: html_document
 editor_options: 
   chunk_output_type: console
----
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
