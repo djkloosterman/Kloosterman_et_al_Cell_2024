@@ -1,6 +1,6 @@
 ---
 title: "Supplementary Figure 1A-G"
-author: "Daan Kloosterman"
+author: "Daan J. Kloosterman"
 date: "8/12/2021"
 output: html_document
 editor_options: 
