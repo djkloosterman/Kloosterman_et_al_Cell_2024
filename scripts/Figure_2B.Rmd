@@ -1,0 +1,792 @@
+---
+title: "Figure 2B"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pre-processing of VISIUM10x dataset and classification of spots
+
+This module contains the code used to integrate and filter the pre-processed visium 10x data for further downstream processing. The raw visium 10x expression matrices can be downloaded from (...)
+
+# Loading packages/libraries required for the data pre-processing
+
+```{r}
+library(Seurat)
+library(nichenetr)
+library(readxl)
+library(dplyr)
+library(readr)
+library(nichenetr)
+library(dplyr)
+```
+
+
+# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+
+```{r}
+load("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2022 - data availibility/GEO Data - processed/scrna-seq/gbm-complete-subset.Rda")
+
+setwd("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/pre-processed visium") # Set working directory to the raw data folder of the visium 10x data
+
+S1 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S1", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S3 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S3", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S4 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S4", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S5 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S5", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S6 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S6", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S7 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S7", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S8 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S8", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S1_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S1_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S2_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S2_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S3_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S3_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S4_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S4_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S5_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S5_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S6_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S6_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S7_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S7_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+
+S8_2 <- Load10X_Spatial(
+  data.dir = paste(getwd(), "/S8_2", sep = ""),
+  filename = "filtered_feature_bc_matrix.h5",
+  assay = "Spatial",
+  slice = "slice1",
+  filter.matrix = TRUE,
+  to.upper = FALSE,
+  image = NULL,
+)
+```
+
+## Merge data, annotate and normalise using the SCT transformation
+
+```{r}
+# Batch 1
+# Prepping all data for analysis
+S1$orig.ident <- c("S1")
+S2$orig.ident <- c("S2")
+S3$orig.ident <- c("S3")
+S4$orig.ident <- c("S4")
+S5$orig.ident <- c("S5")
+S6$orig.ident <- c("S6")
+S7$orig.ident <- c("S7")
+S8$orig.ident <- c("S8")
+
+gbm.merged <- merge(S1, c(S2, S3, S4, S5, S6, S7, S8))
+rm(S1, S2, S3, S4, S5, S6, S7, S8)
+
+# Add tumor information to each sample: Ink4a = PDG-Ink4a KO model, p53 = PDG-p53 KD model, Prim = Primary tumor, Rec = Recurrent tumor
+names(gbm.merged@images) <- c("Ink4a_Prim_S1", "Ink4a_Rec_S2", "Ink4a_Prim_S3", "Ink4a_Rec_S4", "Ink4a_Rec_S5", "P53_Prim_S6", "Ink4a_Prim_S7", "P53_Prim_S8")
+
+# Standard Seurat workflow which normalizes the dataset with an SCT transformation
+gbm.merged <- SCTransform(gbm.merged, assay = "Spatial", verbose = FALSE)
+gbm.merged_1 <- FindVariableFeatures(gbm.merged, verbose = FALSE)
+
+
+# Batch 1
+# Prepping all data for analysis
+S1_2$orig.ident <- c("S1_2")
+S2_2$orig.ident <- c("S2_2")
+S3_2$orig.ident <- c("S3_2")
+S4_2$orig.ident <- c("S4_2")
+S5_2$orig.ident <- c("S5_2")
+S6_2$orig.ident <- c("S6_2")
+S7_2$orig.ident <- c("S7_2")
+S8_2$orig.ident <- c("S8_2")
+
+gbm.merged <- merge(S1_2, c(S2_2, S3_2, S4_2, S5_2, S6_2, S7_2, S8_2))
+rm(S1_2, S2_2, S3_2, S4_2, S5_2, S6_2, S7_2, S8_2)
+
+# Add tumor information to each sample: Ink4a = PDG-Ink4a KO model, p53 = PDG-p53 KD model, Prim = Primary tumor, Rec = Recurrent tumor
+names(gbm.merged@images) <- c("P53_Prim_S1_2", "P53_Rec_S2_2", "P53_Rec_S3_2", "P53_Rec_S4_2", "NF1_Prim_S5_2", "NF1_Prim_S6_2", "NF1_Prim_S7_2", "Ink4a_Prim_S8_2")
+
+# Standard Seurat workflow which normalizes the dataset with an SCT transformation
+gbm.merged <- SCTransform(gbm.merged, assay = "Spatial", verbose = FALSE)
+gbm.merged_2 <- FindVariableFeatures(gbm.merged, verbose = FALSE)
+rm(gbm.merged)
+
+features <- SelectIntegrationFeatures(object.list = c(gbm.merged_1, gbm.merged_2), nfeatures = 3000)
+gbm.anchors <- FindIntegrationAnchors(object.list = c(gbm.merged_1, gbm.merged_2),  anchor.features = features)
+
+gbm.merged <- IntegrateData(anchorset = gbm.anchors)
+rm(gbm.anchors, gbm.merged_1, gbm.merged_2)
+
+gbm.merged <- ScaleData(gbm.merged, verbose = FALSE)
+gbm.merged <- RunPCA(gbm.merged, verbose = FALSE)
+gbm.merged <- RunUMAP(gbm.merged, reduction = "pca", dims = 1:10)
+gbm.merged <- FindNeighbors(gbm.merged, reduction = "pca", dims = 1:10)
+gbm.merged <- FindClusters(gbm.merged, resolution = 0.3, algorithm = 1)
+```
+
+
+## Assign pseudolocation to each spot using the IVY-Gap signatures of the four major niches of glioblastoma, the cellular tumor (CT), the cells surrounding pseudopalisading necrosis (PAN), the microvascular proliferation (MVP) and leading edge (LE) 
+
+```{r}
+setwd("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility") # Set working directory to the unzipped github folder of the visium 10x data (https://github.com/djkloosterman/Kloosterman_et_al)
+source("unique functions/assignLocation.R")
+source("unique functions/assignSubtype.R")
+source("unique functions/assignVerhaak.R")
+source("unique functions/assignRavi.R")
+
+## Assign Ivy GAP defined niches
+DefaultAssay(gbm.merged) <- "SCT"
+IvyGAP <- read_excel("signatures/IVY_gap_signatures.xlsx")
+
+IvyGAP$Gene <- IvyGAP$NAME %>% convert_human_to_mouse_symbols() 
+IvyGAP <- IvyGAP[complete.cases(IvyGAP), ]
+
+ct.all <-  subset(IvyGAP$Gene, subset = IvyGAP$Assigned == "CT")
+pan.all <-  subset(IvyGAP$Gene, subset = IvyGAP$Assigned == "CTpan")
+le.all <-  subset(IvyGAP$Gene, subset = IvyGAP$Assigned == "LE")
+mvp.all <-  subset(IvyGAP$Gene, subset = IvyGAP$Assigned == "CTmvp")
+
+
+gbm.merged <- assignLocation(gbm.merged, ct.features = ct.all, pan.features = pan.all, le.features = le.all, mvp.features = mvp.all)
+SpatialDimPlot(gbm.merged, images = c( "Ink4a_Prim_S8_2"), group.by = "Location" ,  stroke = 0,   image.alpha = 0, alpha = 1) 
+```
+
+
+# Assign most dominant cellular subtype to each spot
+
+```{r}
+## Assign Neftel cellular subset defined niches
+Cell_Signatures <- read_excel("signatures/Glioblastoma_meta-module_genelist.xlsx")
+
+MES1.features <- convert_human_to_mouse_symbols (Cell_Signatures$MES1)
+MES2.features <- convert_human_to_mouse_symbols(Cell_Signatures$MES2)
+AC.features <- convert_human_to_mouse_symbols(Cell_Signatures$AC)
+OPC.features <- convert_human_to_mouse_symbols(Cell_Signatures$OPC)
+NPC1.features <- convert_human_to_mouse_symbols(Cell_Signatures$NPC1)
+NPC2.features <- convert_human_to_mouse_symbols(Cell_Signatures$NPC2)
+
+library(nichenetr)
+library(dplyr)
+# Set working directory to folder "signatures" 
+Idents(gbm.combined_subset) <- gbm.combined_subset$celltype
+levels(gbm.combined_subset)
+gbm.combined_subset <- RenameIdents(object = gbm.combined_subset,  "DCs" = "rest",
+                           "T cells" = "rest",
+                           "Endothelial cells" = "rest",
+                           "Astrocytes" = "rest",
+                           "Pericytes" = "rest",
+                           "MDMs" = "rest",
+                           "MG"= "rest")   
+gbm.combined_subset$macrovsrest <- Idents(gbm.combined_subset)
+
+MES1.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = MES1.features, group.by = "macrovsrest")
+MES1.expression <- MES1.expression$RNA
+MES1.expression <- as.data.frame(MES1.expression)
+
+MES2.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = MES2.features, group.by = "macrovsrest")
+MES2.expression <- MES2.expression$RNA
+MES2.expression <- as.data.frame(MES2.expression)
+
+AC.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = AC.features, group.by = "macrovsrest")
+AC.expression <- AC.expression$RNA
+AC.expression <- as.data.frame(AC.expression)
+
+OPC.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = OPC.features, group.by = "macrovsrest")
+OPC.expression <- OPC.expression$RNA
+OPC.expression <- as.data.frame(OPC.expression)
+
+NPC1.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = NPC1.features, group.by = "macrovsrest")
+NPC1.expression <- NPC1.expression$RNA
+NPC1.expression <- as.data.frame(NPC1.expression)
+
+NPC2.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = NPC2.features, group.by = "macrovsrest")
+NPC2.expression <- NPC2.expression$RNA
+NPC2.expression <- as.data.frame(NPC2.expression)
+
+MES1.expression$FC <- MES1.expression$`Tumor cells`/MES1.expression$rest
+MES2.expression$FC <- MES2.expression$`Tumor cells`/MES2.expression$rest
+AC.expression$FC <- AC.expression$`Tumor cells`/AC.expression$rest
+OPC.expression$FC <- OPC.expression$`Tumor cells`/OPC.expression$rest
+NPC1.expression$FC <- NPC1.expression$`Tumor cells`/NPC1.expression$rest
+NPC2.expression$FC <- NPC2.expression$`Tumor cells`/NPC2.expression$rest
+
+MES1.features <- subset(rownames(MES1.expression), subset = MES1.expression$FC > 0 & MES1.expression$`Tumor cells` > 0.5  & MES1.expression$`Tumor cells` < 5)
+MES2.features<- subset(rownames(MES2.expression), subset = MES2.expression$FC > 0 & MES2.expression$`Tumor cells` > 0.1  & MES2.expression$`Tumor cells` < 5)
+AC.features <- subset(rownames(AC.expression), subset = AC.expression$FC > 1  & AC.expression$`Tumor cells` > 1 & AC.expression$`Tumor cells` < 100)
+OPC.features <- subset(rownames(OPC.expression), subset = OPC.expression$FC > 5 & OPC.expression$`Tumor cells` > 1  & OPC.expression$`Tumor cells` < 100)
+NPC1.features <-  subset(rownames(NPC1.expression), subset = NPC1.expression$FC > 5  & NPC1.expression$`Tumor cells` > 1 & NPC1.expression$`Tumor cells` < 100)
+NPC2.features <-  subset(rownames(NPC2.expression), subset = NPC2.expression$FC > 5  & NPC2.expression$`Tumor cells` > 1  & NPC2.expression$`Tumor cells` < 100)
+DefaultAssay(gbm.merged) <- "SCT"
+
+gbm.merged <- assignSubtype(gbm.merged, MES1.features = MES1.features, MES2.features = MES2.features, AC.features = AC.features, OPC.features = OPC.features, NPC1.features = NPC1.features, NPC2.features = NPC2.features)
+SpatialDimPlot(gbm.merged, images = c("Ink4a_Prim_S8_2"), group.by = "Cell.Subtype",  stroke = 0,   image.alpha = 0, alpha = 1) 
+```
+
+
+## Calculate LLM score for each spot and classify cells as LLM enriched when score is higher than 0.1
+
+```{r}
+## LLM 5 gene signature
+Gene <- c("Gpnmb",  "Fabp5",  "Hmox1",  "Spp1" ,  "Arg1")
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+
+gbm.merged <- NormalizeData(gbm.merged) # Needs to be normalised 
+fdscores <- AddModuleScore(gbm.merged, features= list(c(Gene)), name="Gene",nbin=100)
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds of 0.1
+  gbm.merged@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.merged@meta.data[which(fdscores@meta.data[,i]>0.25),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+  fdscores_llm <- fdscores
+}
+
+Idents(gbm.merged) <- gbm.merged@meta.data$assignedtoGene1
+new.cluster.ids <- c("low-LLM activity", "high-LLM activity")
+
+names(new.cluster.ids) <- levels(gbm.merged)
+gbm.merged <- RenameIdents(gbm.merged, new.cluster.ids)
+gbm.merged$LLM <- Idents(gbm.merged)
+
+
+x_abundance <- t(table( gbm.merged$orig.ident, gbm.merged$LLM))
+write.csv(x_abundance, file = "~/Desktop/LLM.csv")
+```
+
+
+## Load macrophage subset signatures 
+
+```{r}
+Top30genes <- read_csv("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2022 - code availibility/signatures/Top30genes.csv")
+
+M01 <-Top30genes[ Top30genes$cluster %in% c("MG1-P2RY12"), ]$gene
+M02 <-Top30genes[ Top30genes$cluster %in% c("MG2-TNF"), ]$gene
+M03 <-Top30genes[ Top30genes$cluster %in% c("MG3-GPNMB"), ]$gene
+M04 <-Top30genes[ Top30genes$cluster %in% c("MG4-MKI67"), ]$gene
+
+B01 <-Top30genes[ Top30genes$cluster %in% c("MDM1-CCR7"), ]$gene
+B02 <-Top30genes[ Top30genes$cluster %in% c("MDM2-H2-EB1"), ]$gene
+B03 <-Top30genes[ Top30genes$cluster %in% c("MDM3-GPNMB"), ]$gene
+B04 <-Top30genes[ Top30genes$cluster %in% c("MDM4-MKI67"), ]$gene
+
+# Set working directory to folder "signatures" 
+levels(gbm.combined_subset)
+Idents(gbm.combined_subset) <- gbm.combined_subset$celltype
+gbm.combined_subset <- RenameIdents(object = gbm.combined_subset,  "DCs" = "rest",
+                           "T cells" = "rest",
+                           "Endothelial cells" = "rest",
+                           "Astrocytes" = "rest",
+                           "Pericytes" = "rest",
+                           "Tumor cells"  = "rest")   
+gbm.combined_subset$macrovsrest <- Idents(gbm.combined_subset)
+
+M01.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = M01, group.by = "macrovsrest")
+M01.expression <- M01.expression$RNA
+M01.expression <- as.data.frame(M01.expression)
+
+M02.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = M02, group.by = "macrovsrest")
+M02.expression <- M02.expression$RNA
+M02.expression <- as.data.frame(M02.expression)
+
+M03.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = M03, group.by = "macrovsrest")
+M03.expression <- M03.expression$RNA
+M03.expression <- as.data.frame(M03.expression)
+
+M04.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = M04, group.by = "macrovsrest")
+M04.expression <- M04.expression$RNA
+M04.expression <- as.data.frame(M04.expression)
+
+B01.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = B01, group.by = "macrovsrest")
+B01.expression <- B01.expression$RNA
+B01.expression <- as.data.frame(B01.expression)
+
+B02.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = B02, group.by = "macrovsrest")
+B02.expression <- B02.expression$RNA
+B02.expression <- as.data.frame(B02.expression)
+
+B03.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = B03, group.by = "macrovsrest")
+B03.expression <- B03.expression$RNA
+B03.expression <- as.data.frame(B03.expression)
+
+B04.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = B04, group.by = "macrovsrest")
+B04.expression <- B04.expression$RNA
+B04.expression <- as.data.frame(B04.expression)
+
+# Make macrophage specific features
+M01 <- subset(rownames(M01.expression), subset = M01.expression$`rest` < 1)
+M02 <- subset(rownames(M02.expression), subset = M02.expression$`rest` < 1)
+M03 <- subset(rownames(M03.expression), subset = M03.expression$`rest` < 1)
+M04 <- subset(rownames(M04.expression), subset = M04.expression$`rest` < 1)
+B01 <-  subset(rownames(B01.expression), subset = B01.expression$`rest` < 1)
+B02 <-  subset(rownames(B02.expression), subset = B02.expression$`rest` < 1)
+B03 <-  subset(rownames(B03.expression), subset = B03.expression$`rest` < 1)
+B04 <-  subset(rownames(B04.expression), subset = B04.expression$`rest` < 1)
+```
+
+
+# Create functions to score each subset based on its ontogenty (MG or MDMs)
+
+```{r}
+MGSubsetScoring <- function (object, 
+                           M01.features,  M02.features, M03.features
+                           ,set.ident = FALSE, ctrl_genes = 100, ...)
+    {
+        name <- "MG.Subset"
+        features <- list(  M01.Score = M01.features, M02.Score =  M02.features, M03.Score = M03.features)
+        object.cc <- AddModuleScore(object = object,
+                                    features = features,
+                                    name = name,
+                                    ctrl = min(c(vapply(X = features, FUN = length, FUN.VALUE = numeric(length = 1))), 
+                                               ctrl_genes), 
+                                    ...)
+        cc.columns <- grep(pattern = name, x = colnames(x = object.cc[[]]),
+                           value = TRUE)
+        cc.scores <- object.cc[[cc.columns]]
+        cc.scores <- t(cc.scores)
+        cc.scores <- t(apply(cc.scores, 1, function(y)(y-min(y))/(max(y)-min(y))))
+        cc.scores <- t(cc.scores)
+        rm(object.cc)
+        CheckGC()
+        assignments <- apply(X = cc.scores, MARGIN = 1, FUN = function(scores,
+                                                                       first = "M01", second = "M02", third = "M03", 
+                                                                       null = "Undecided") {
+            if (all(scores < -0.0)) {
+                return(null)
+            }
+            else {
+                    return(c(first, second, third)[which(x = scores == max(scores))])
+                }
+            }
+        )
+        cc.scores <- merge(x = cc.scores, y = data.frame(assignments),
+                           by = 0)
+        colnames(x = cc.scores) <- c("rownames", "M01.Score", "M02.Score", "M03.Score",
+                                     "MG_subset")
+        rownames(x = cc.scores) <- cc.scores$rownames
+        cc.scores <- cc.scores[, c("M01.Score", "M02.Score", "M03.Score",
+                                     "MG_subset")]
+        object[[colnames(x = cc.scores)]] <- cc.scores
+        if (set.ident) {
+            object[["old.ident"]] <- Idents(object = object)
+            Idents(object = object) <- "MG_subset"
+        }
+        return(object)
+}
+
+MDMSubsetScoring <- function (object, 
+                           B01.features,  B02.features, B03.features, B04.features
+                           ,set.ident = FALSE, ctrl_genes = 100, ...)
+    {
+        name <- "MDM.Subset"
+        features <- list(  B01.Score = B01.features, B02.Score =  B02.features, B03.Score = B03.features)
+        object.cc <- AddModuleScore(object = object,
+                                    features = features,
+                                    name = name,
+                                    ctrl = min(c(vapply(X = features, FUN = length, FUN.VALUE = numeric(length = 1))), 
+                                               ctrl_genes), 
+                                    ...)
+        cc.columns <- grep(pattern = name, x = colnames(x = object.cc[[]]),
+                           value = TRUE)
+        cc.scores <- object.cc[[cc.columns]]
+        cc.scores <- t(cc.scores)
+        cc.scores <- t(apply(cc.scores, 1, function(y)(y-min(y))/(max(y)-min(y))))
+        cc.scores <- t(cc.scores)
+        rm(object.cc)
+        CheckGC()
+        assignments <- apply(X = cc.scores, MARGIN = 1, FUN = function(scores,
+                                                                       first = "B01", second = "B02", third = "B03", 
+                                                                       null = "Undecided") {
+            if (all(scores < -0.0)) {
+                return(null)
+            }
+            else {
+                    return(c(first, second, third)[which(x = scores == max(scores))])
+                }
+            }
+        )
+        cc.scores <- merge(x = cc.scores, y = data.frame(assignments),
+                           by = 0)
+        colnames(x = cc.scores) <- c("rownames", "B01.Score", "B02.Score", "B03.Score",
+                                     "MDM_subset")
+        rownames(x = cc.scores) <- cc.scores$rownames
+        cc.scores <- cc.scores[, c("rownames", "B01.Score", "B02.Score", "B03.Score", 
+                                     "MDM_subset")]
+        object[[colnames(x = cc.scores)]] <- cc.scores
+        if (set.ident) {
+            object[["old.ident"]] <- Idents(object = object)
+            Idents(object = object) <- "MDM_subset"
+        }
+        return(object)
+}
+
+```
+
+
+# Use MacrophageSubsetScoring functions
+
+```{r}
+DefaultAssay(gbm.merged) <- "SCT"
+
+gbm.merged <- MGSubsetScoring(gbm.merged, 
+                           M01.features = M01,  M02.features = M02, M03.features = M03)
+
+
+gbm.merged <- MDMSubsetScoring(gbm.merged, 
+                           B01.features = B01,  B02.features = B02, B03.features = B03)
+```
+
+
+## Localise pan-macrophages
+
+```{r}
+## Macrophage specific genes 
+Gene <- c("Aif1", "P2ry12", "Lgals3", "Itga1", "Trem2", "Siglech")
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(gbm.merged, features= list(c(Gene)), name="Gene")
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds
+  gbm.merged@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.merged@meta.data[which(fdscores@meta.data[,i]>0.1),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+  fdscores_llm <- fdscores
+}
+
+Idents(gbm.merged) <- gbm.merged@meta.data$assignedtoGene1
+new.cluster.ids <- c( "Rest", "Macrophage")
+
+names(new.cluster.ids) <- levels(gbm.merged)
+gbm.merged <- RenameIdents(gbm.merged, new.cluster.ids)
+gbm.merged$Macrophage_score <- Idents(gbm.merged)
+```
+
+
+## Localise in pan-macrophages the MG 
+
+```{r}
+## LLM 18 gene signature
+Gene <- c("P2ry12", "Siglech")
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(gbm.merged, features= list(c(Gene)), name="Gene")
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds
+  gbm.merged@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.merged@meta.data[which(fdscores@meta.data[,i]>threshold),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+  fdscores_llm <- fdscores
+}
+
+Idents(gbm.merged) <- gbm.merged@meta.data$assignedtoGene1
+new.cluster.ids <- c( "Rest", "MG")
+
+names(new.cluster.ids) <- levels(gbm.merged)
+gbm.merged <- RenameIdents(gbm.merged, new.cluster.ids)
+gbm.merged$MG_score <- Idents(gbm.merged)
+```
+
+
+# Classify each cell based on the pan-macrophage and microglia marker (Macrophage - Rest = MDM, Macrophage - MG = MG)
+
+```{r}
+Idents(gbm.merged) <- paste(gbm.merged$Macrophage_score, gbm.merged$MG_score)
+levels(gbm.merged)
+gbm.merged <- RenameIdents(object = gbm.merged, "Rest Rest" = "TME" ,
+                           "Macrophage MG" = "MG",
+                           "Macrophage Rest" = "MDM",
+                           "Rest MG" = "TME" )
+levels(gbm.merged)
+gbm.merged$celltype <- Idents(gbm.merged)
+
+Idents(gbm.merged) <- paste(gbm.merged$celltype,gbm.merged$MDM_subset, gbm.merged$MG_subset)
+levels(Idents(gbm.merged))
+
+gbm.merged <- RenameIdents(object = gbm.merged, "TME B01 M02" = "NA", 
+                           "MDM B01 M01" = "MDM1-CCR7",
+                           "MDM B01 M02" = "MDM1-CCR7",
+                           "MDM B03 M01" = "MDM3-GPNMB",
+                           "MG B01 M02" = "MG2-TNF" ,
+                           "TME B01 M01" = "NA",
+                           "MG B03 M01" = "MG1-P2RY12",
+                           "TME B02 M01" = "NA",
+                           "MDM B01 M03" = "MDM1-CCR7",
+                           "TME B03 M01" = "NA",
+                           "TME B02 M02" = "NA",
+                           "MDM B03 M03" = "MDM3-GPNMB",
+                           "MG B01 M01" = "MG1-P2RY12" ,
+                           "MDM B02 M01" = "MDM2-H2-EB1",
+                           "TME B03 M02" ="NA",
+                           "MG B02 M01" = "MG1-P2RY12" ,
+                           "MG B03 M02" = "MG2-TNF",
+                           "MDM B03 M02" = "MDM3-GPNMB",
+                           "TME B01 M03" = "NA",
+                           "MDM B02 M02" = "MDM2-H2-EB1",
+                           "TME B03 M03" = "NA",
+                           "MG B02 M02" = "MG2-TNF",
+                           "MG B03 M03" = "MG3-GPNMB",
+                           "MG B01 M03" = "MG3-GPNMB",
+                           "MDM B02 M03" = "MDM2-H2-EB1",
+                           "TME B02 M03" = "NA",
+                           "MG B02 M03" = "MG3-GPNMB"
+                           )
+
+
+gbm.merged$TME <- Idents(gbm.merged)
+levels(Idents(gbm.merged))
+
+my_levels <-  c("MG1-P2RY12",	"MG2-TNF", "MG3-GPNMB" ,	"MDM1-CCR7",	"MDM2-H2-EB1", "MDM3-GPNMB", "NA")
+
+# Relevel object@ident
+Idents(gbm.merged) <- factor(Idents(gbm.merged), levels = my_levels)
+gbm.merged$TME <- Idents(gbm.merged)
+Idents(gbm.merged) <- gbm.merged$TME
+
+SpatialDimPlot(gbm.merged,  stroke = 0,   image.alpha = 0, alpha = 1, images = c("Ink4a_Prim_S8_2"), cells.highlight = CellsByIdentities(gbm.merged), facet.highlight = TRUE,  ncol = 4)
+```
+
+
+# Assign tumor area based on RNA count data (>7000 = tumor tissue, lower = non tumor bearing (Ntb))
+
+```{r}
+gbm.merged@meta.data[,"tissue"] <- c("Ntb")
+gbm.merged@meta.data[which(gbm.merged$nCount_Spatial>7000),"tissue"] <-  c("Tumor")
+Idents(gbm.merged) <- gbm.merged$tissue
+VlnPlot(gbm.merged, features = "nCount_Spatial", pt.size = 0.1, group.by = c("orig.ident"), split.by = "tissue") + NoLegend()
+```
+
+
+# Figure 2B: Classification of spots based on glioblastoma cellular subtype dominance or anatatomical niche
+
+```{r}
+SpatialDimPlot(gbm.merged, group.by = "Location", images = c("Ink4a_Prim_S8_2")) + scale_fill_manual(values = c("orange", "violetred1", "darkolivegreen3","lightblue", "grey")) 
+SpatialDimPlot(gbm.merged, group.by = "Cell.Subtype", images = c("Ink4a_Prim_S8_2")) + scale_fill_manual(values = c("darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3", "NA" ))
+```
+
+
+# Saving data for further downstream processing and analysis
+
+```{r}
+saveRDS(gbm.merged, file = "~/Desktop/visium_merged_complete.rds")
+```
