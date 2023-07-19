@@ -1,0 +1,580 @@
+---
+title: "Supplementary Figure 2A-E"
+author: "Daan Kloosterman"
+date: "11/26/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Understanding macrophage heterogeneity in the context of glioblastoma
+
+A deeper analysis of the macrophage subsets present in glioblastoma. Here we focus on the distribution and function of GPNMB-high (read LLMs).
+
+# Loading packages/libraries required for the upcoming codes
+
+```{r}
+library(Seurat)
+library(readxl)
+library(dplyr)
+```
+
+
+# Loading data
+
+```{r}
+# Set working directory to folder "pre-processed human scrna-seq" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2022 - data availibility/GEO Data - processed/scrna-seq"
+setwd(work_dir)
+load("gbm-complete-myeloid_polished.Rda")
+```
+
+# Finding top 30 markers for each macrophage cluster
+
+```{r}
+# Finding classifiers for each subpopulation
+Idents(gbm.myeloid) <- gbm.myeloid$clusterf
+pbmc.markers <- FindAllMarkers(gbm.myeloid, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+pbmc.markers %>% group_by(cluster) %>% top_n(n = 2)
+
+
+DefaultAssay(gbm.myeloid) <- "RNA"
+top30 <- pbmc.markers %>% group_by(cluster) %>% top_n(n = 30, avg_log2FC)
+
+write.csv(top30,"~/Desktop/Top30genes.csv", row.names = FALSE)
+```
+
+## Figure S2A: Justification for cluster naming
+
+```{r}
+library(Seurat)
+library(patchwork)
+library(ggplot2)
+library(cowplot)
+Idents(gbm.myeloid) <- gbm.myeloid$clusterf
+VlnPlot(gbm.myeloid,  features = c("P2ry12", "Tnf", "Gpnmb", "Mki67", "Ccr2", "H2-Eb1"), group.by = "clusterf",stack = TRUE, sort = F, flip = TRUE) +
+        theme(legend.position = "none") + ggtitle("identities on x-axis")
+
+ident <- as.data.frame(gbm.myeloid@active.ident) 
+colnames(ident) <- c("Idents")
+
+## Adjust colors
+# Subset data.frame
+features =  c("P2ry12", "Tnf", "Gpnmb", "Mki67", "Ccr2", "H2-Eb1")
+gbm.myeloid_subset <- as.data.frame(gbm.myeloid@assays$RNA[features])
+
+gbm.myeloid_subset <- as.data.frame(t(gbm.myeloid_subset))
+
+# Add cell ID and identity classes
+gbm.myeloid_subset$Cell <- rownames(gbm.myeloid_subset)
+gbm.myeloid_subset <- cbind(gbm.myeloid_subset, ident)
+
+
+# Use melt to change data.frame format
+gbm.myeloid_subset <- reshape2::melt(gbm.myeloid_subset, id.vars = c("Cell","Idents"), measure.vars = features,
+                       variable.name = "Feat", value.name = "Expr")
+ggplot(gbm.myeloid_subset, aes(factor(Idents), Expr, fill = factor(Idents))) +
+        geom_violin(scale = "width", adjust = 1, trim = TRUE) +
+        scale_y_continuous(expand = c(0, 0), position="right", labels = function(x)
+                           c(rep(x = "", times = length(x)-2), x[length(x) - 1], "")) +
+        facet_grid(rows = vars(Feat), scales = "free", switch = "y") +
+        theme_cowplot(font_size = 12) +
+        theme(legend.position = "none", panel.spacing = unit(0, "lines"),
+              panel.background = element_rect(fill = NA, color = "black"),
+              strip.background = element_blank(),
+              strip.text = element_text(),
+              strip.text.y.left = element_text(angle = 0)) +
+        ggtitle("") + xlab("") + ylab("Expression Level") +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+
+## Figure S2A
+ggplot(gbm.myeloid_subset, aes(Expr, factor(Idents), fill = factor(Idents))) +
+        geom_violin(scale = "width", adjust = 1, trim = TRUE) +
+        scale_x_continuous(expand = c(0, 0), labels = function(x)
+                           c(rep(x = "", times = length(x)-2), x[length(x) - 1], "")) +
+        facet_grid(cols = vars(Feat), scales = "free")  +
+        theme_cowplot(font_size = 12) +
+        theme(legend.position = "none", panel.spacing = unit(0, "lines"),
+              panel.background = element_rect(fill = NA, color = "black"),
+              strip.background = element_blank(),
+              strip.text = element_text(),
+              strip.text.x.top = element_text(angle = 0, hjust = 0, vjust = 0.5)) +
+        ggtitle("") + xlab("Gene Expression") + ylab("")+
+    scale_y_discrete(limits=rev)
+
+```
+
+
+# Figure S2B: Generating data for heatmap (created in Prism) using published macrophages subset signature enrichment scores
+
+```{r}
+library(data.table)
+## Selecting signature gene lists
+HomeostaticMicroglia <- c("Tmem119", "P2ry12", "Cx3cr1", "Slc2a5","P2ry13") # Used Marco Prinz paper: Microglia Heterogeneity in Single-Cell Era
+PreactiveMicroglia <- c("Ccl2", "Ccl4", "Cd83", "Egr1") # Used Marco Prinz paper: Microglia Heterogeneity in Single-Cell Era
+RemyelinationMicroglia <- c("Apoe", "Itgax","Lyz2", "Igf1", "Axl", "Cd74", "Cybb", "H2-aa", "H2-ab1") # Used Marco Prinz paper: Microglia Heterogeneity in Single-Cell Era
+DemyelinationMicroglia <- c("Apoe", "Itgax","Lyz2", "Igf1", "Axl", "Spp1", "Cst7", "Fn1", "Ccl6") # Used Marco Prinz paper: Microglia Heterogeneity in Single-Cell Era
+Lipidassociated <- c("Trem2", "Lipa", "Lpl", "Ctsb", "Ctsl", "Fabp4", "Fabp5", "Lgals1", "Lgals3", "Cd9",  "Cd36" )# Lipid-Associated Macrophages Control Metabolic Homeostasis in a Trem2-Dependent Manner
+Neuroinflammatory <- c("Cxcl10", "B2m", "Ccl4", "Tnf","Ly86")
+TcellexhaustionMicroglia <- c("Cd74", "Cd274", "Irf8", "Fn1", "Irf4", "Myc", "Vcam1")
+EctopicMacros <- c("Pf4", "Mrc1", "Ftl1", "Sepp1", "F13a1", "Dab2", "Lyve1", "Stab1", "Ms4a4a", "Ms4a7", "Trf")
+GAM <- c ("Apoe","Tyrobp", "Sgk1","Apoc1", "Il18",   "Ifi44l", "Ifitm3", "B2m", "Tlr", "Fcer1g")
+DAM_MP <-  c( "Msr1", "Lgals3", "Axl", "Csf1", "Ctsb", "Ctsd", "Ctsl", "Cybn", "Fabp5", "Fth1", "Itgax", "Lpl", "Il1b", "Trem2", "Spp1", "Nos2", "Vegfa" ) # Macro Prinz
+DAM_KS <- c("Cst7", "Lpl", "Clec7a", "Itgax", "Spp1", "Igf1", "Apoe", "Axl", "Ank", "Ch25h") # (Keren-Shaul et al., 2017b) 
+ATM <- c("Spp1", "Gpnmb", "Igf1", "Lgals3", "Fabp5", "Lgals1", "Ctsl", "Anxa5", "Cd9") # Axonal tract microglia (Hammond et al., 2019), enriched in the developing axonal tracts 
+PAM <- c("Spp1", "Gpnmb", "Lpl", "Pld3", "Ctsl", "Csf1", "Igf1", "Ctsb", "Slc23a2", "Gpx3") # proliferative-region-associated microglia (PAM), These amoeboid PAMs preferentially phagocytosed fluorescently labelled beads relative to other microglia phenotypes (54). PAMs were found to engulf newly formed oligodendrocytes, which incur significant cell death upon the onset of CNS myelination (62). The emergence of the PAM phenotype coincides with myelination onset and, therefore, may play an essential role in clearing the overproduced oligodendrocytes (63). PAMs also upregulated genes associated with lipid metabolism, lipid transport and lysosomal acidification, presumably necessitated by the phagocytosis of lipid-rich oligodendrocytes (54). (Li et al., 2019)
+Monocyte <-  c( "Ccr7", "Ccl17", "Ccl22") #  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6889845/
+CD11chigh <- c("Dkk2", "Saa3", "Tslp", "Trpc4", "Fsd2", "Gpnmb", "Pla2g2d", "Gpr126", "Atp6v0d2") # (Wlodarczyk et al., 2017)
+AcuteDemyleination <- c("Spp1", "Lyz2", "Cxcl", "Ccl5", "Gpnmb", "Ifit3", "Apoc1", "Ccl12", "Rmi2", "Cd74") # (Plemel et al., 2020)
+EAEMicroglia <- c( "Ly86", "Ccl1", "Cxcl10", "Mki67", "Ccl4", "Ccl5", "Cxcl10")
+## Some found in https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7677361/
+
+signatures <- list(as.list(HomeostaticMicroglia), as.list(PreactiveMicroglia), as.list(RemyelinationMicroglia), as.list(DemyelinationMicroglia),as.list(Lipidassociated) , as.list(Neuroinflammatory), as.list(TcellexhaustionMicroglia), as.list(EctopicMacros), as.list(GAM), as.list(DAM_MP), as.list(DAM_KS), as.list(ATM), as.list(PAM), as.list(Monocyte), as.list(CD11chigh), as.list(AcuteDemyleination), as.list(EAEMicroglia))
+
+names(signatures) <- c("HomeostaticMicroglia", "PreactiveMicroglia", "RemyelinationMicroglia", "DemyelinationMicroglia", "Lipidassociated", "Neuroinflammatory", "TcellexhaustionMicroglia", "EctopicMacros", "GAM", "DAM_MP", "DAM_KS", "ATM", "PAM", "Monocyte", "CD11chigh", "AcuteDemyleination", "EAEMicroglia")
+
+
+
+## Prepping the data
+fdscomplete <- c()
+filtereddata <- gbm.myeloid  # Put here the dataset with clusterf you desire
+my_levels <- c("MG1-P2RY12",	
+                "MG2-TNF",
+                "MG3-GPNMB",
+                "MG4-MKI67",
+                "MDM1-CCR7",
+                "MDM2-H2-EB1",
+                "MDM3-GPNMB",
+                "MDM4-MKI67" )
+
+# The script
+for (i in 1:length(signatures)){
+  DefaultAssay(filtereddata) <- "RNA"
+  Gene <- unlist(as.vector(signatures[[i]]))
+  
+
+##select the genes from the geneset that are in the Cluster.1 expression data
+Gene <- Gene[Gene %in% rownames(filtereddata)]
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(filtereddata, features=list(c(Gene)), name="Gene",nbin=100)
+
+# Average of fdscores
+library(data.table)
+
+filtereddata1 <- fdscores[, fdscores$clusterf %in% c("MG1-P2RY12")] 
+filtereddata2 <- fdscores[, fdscores$clusterf %in% c(	"MG2-TNF")] 
+filtereddata3 <- fdscores[, fdscores$clusterf %in% c(	"MG3-GPNMB" )]
+filtereddata4 <- fdscores[, fdscores$clusterf %in% c(	"MG4-MKI67")]
+filtereddata5 <- fdscores[, fdscores$clusterf %in% c("MDM1-CCR7")] 
+filtereddata6 <- fdscores[, fdscores$clusterf %in% c( "MDM2-H2-EB1")]
+filtereddata7 <- fdscores[, fdscores$clusterf %in% c(	"MDM3-GPNMB")]
+filtereddata8 <- fdscores[, fdscores$clusterf %in% c( "MDM4-MKI67" )] 
+
+
+df1 <- mean(filtereddata1@meta.data$Gene) 
+df2 <- mean(filtereddata2@meta.data$Gene) 
+df3 <- mean(filtereddata3@meta.data$Gene) 
+df4 <- mean(filtereddata4@meta.data$Gene) 
+df5 <- mean(filtereddata5@meta.data$Gene) 
+df6 <- mean(filtereddata6@meta.data$Gene) 
+df7 <- mean(filtereddata7@meta.data$Gene) 
+df8 <- mean(filtereddata8@meta.data$Gene) 
+
+fdscompared <- as.data.frame(cbind(df1, df2, df3, df4, df5, df6, df7, df8))
+fdscompared <- t(fdscompared)
+row.names(fdscompared) <- my_levels
+
+fdscomplete <- cbind(fdscomplete, fdscompared)
+rm(fdscores)
+}
+
+## Finalizing data.frame and writing CSV file on desktop
+colnames(fdscomplete) <- names(signatures)
+
+## Save data for Figure S2B
+write.csv2(fdscomplete, "~/Desktop/SignatureEnrichment_macrophage_MOUSE.csv")
+
+
+## Re-do analysis but on signatures focussed on lipid-laden phenotype in other disease
+pan_LLM_signatures <- read_excel("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures/pan-LLM-signatures.xlsx")
+
+pan_LLM_signatures <- pan_LLM_signatures[2:20,1:7]
+pan_LLM_signatures_list <- apply(pan_LLM_signatures, 2, as.list)
+
+fdscomplete <- c()
+my_levels <- levels(gbm.myeloid$clusterf)
+gbm.myeloid$all <- c("all")
+for (i in 1:7){
+  DefaultAssay(gbm.myeloid) <- "RNA"
+  Gene <- unlist(as.vector(pan_LLM_signatures_list[[i]]))
+
+##select the genes from the geneset that are in the Cluster.1 expression data
+Gene <- Gene[Gene %in% rownames(gbm.myeloid)]
+select <- AverageExpression(gbm.myeloid, assays = "RNA", features = c(Gene), group.by = "all")
+select <- unlist(as.vector(select))
+
+Gene <- Gene[a]
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(gbm.myeloid, features=Gene,  name="Gene",nbin=100)
+
+# Average of fdscores
+filtereddata1 <- fdscores[, fdscores$clusterf %in% c("MG1-P2RY12")] 
+filtereddata2 <- fdscores[, fdscores$clusterf %in% c("MG2-TNF")] 
+filtereddata3 <- fdscores[, fdscores$clusterf %in% c("MG3-GPNMB")] 
+filtereddata4 <- fdscores[, fdscores$clusterf %in% c("MG4-MKI67")] 
+filtereddata5 <- fdscores[, fdscores$clusterf %in% c("MDM1-CCR7")] 
+filtereddata6 <- fdscores[, fdscores$clusterf %in% c("MDM2-H2-EB1")]
+filtereddata7 <- fdscores[, fdscores$clusterf %in% c("MDM3-GPNMB")] 
+filtereddata8 <- fdscores[, fdscores$clusterf %in% c("MDM4-MKI67")] 
+
+df1 <- mean(filtereddata1@meta.data$Gene1)*10000 
+df2 <- mean(filtereddata2@meta.data$Gene1)*10000  
+df3 <- mean(filtereddata3@meta.data$Gene1)*10000 
+df4 <- mean(filtereddata4@meta.data$Gene1) *10000
+df5 <- mean(filtereddata5@meta.data$Gene1) *10000
+df6 <- mean(filtereddata6@meta.data$Gene1) *10000
+df7 <- mean(filtereddata7@meta.data$Gene1) *10000
+df8 <- mean(filtereddata8@meta.data$Gene1) *10000
+
+library(data.table)
+fdscompared <- as.data.frame(cbind(df1, df2, df3, df4, df5,df6, df7, df8))
+fdscompared <- t(fdscompared)
+row.names(fdscompared) <- my_levels
+
+fdscomplete <- cbind(fdscomplete, fdscompared)
+}
+colnames(fdscomplete) <- names(pan_LLM_signatures_list)
+
+# Save extra data for Figure S1B (LLM focused)
+write.csv2(fdscomplete, "~/Desktop/LLMsignatures_on_GBM-LLM.csv")
+```
+
+
+# Figure S2C-D: Generating data for figure using GO annotation analysis on top 30 genes of each macrophage cluster, data was used to create graph in Prism
+
+```{r}
+# load the package
+library(gprofiler2)
+
+macrocluster <- c("MG1-P2RY12")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+M01_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+## --- ## 
+
+macrocluster <- c("MG2-TNF")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+M02_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+## --- ## 
+
+macrocluster <- c("MG3-GPNMB")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+M03_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+## --- ## 
+
+macrocluster <- c("MG4-MKI67")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+M04_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+## --- ## 
+
+macrocluster <- c("MDM1-CCR7")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+B01_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+## --- ## 
+
+macrocluster <- c("MDM2-H2-EB1")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+B02_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+## --- ## 
+
+macrocluster <- c("MDM3-GPNMB")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+B03_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+## --- ## 
+
+macrocluster <- c("MDM4-MKI67")
+genes <- top30[which(top30$cluster == macrocluster),] 
+gp_up = gost(genes$gene, organism = "mmusculus")
+B04_check <- gp_up$result
+
+gostplot(gp_up, interactive = F)
+
+
+library(openxlsx)
+list_of_datasets <- list("M01" = as.data.frame(M01_check[,-14]), "M02" = as.data.frame(M02_check[,-14]), "M03" = as.data.frame(M03_check[,-14]), "M04" = as.data.frame(M04_check[,-14]), "B01" = as.data.frame(B01_check[,-14]), "B02" = as.data.frame(B02_check[,-14]), "B03" = as.data.frame(B03_check[,-14]), "B04" = as.data.frame(B04_check[,-14]))
+write.xlsx(list_of_datasets, file = "~/Desktop/GOtop30.xlsx")
+```
+
+
+#  Heatmap GPNMB-high signature
+
+```{r}
+Idents(gbm.myeloid) <- gbm.myeloid$clusterf
+VlnPlot(gbm.myeloid, features = c("Gpnmb"))
+new.cluster.ids <- c("GpnmbLow",	"GpnmbLow" , "GpnmbHigh",	"GpnmbLow",	"GpnmbLow",	"GpnmbLow", 	"GpnmbHigh",	 "GpnmbLow" )
+names(new.cluster.ids) <- levels(gbm.myeloid)
+gbm.myeloid <- RenameIdents(gbm.myeloid, new.cluster.ids)
+gbm.myeloid$Gpnmb <- Idents(gbm.myeloid)
+
+
+DimPlot(gbm.myeloid, reduction = "umap",  label = F, repel = T)
+VlnPlot(gbm.myeloid, features = c("Gpnmb"), group.by = "clusterf", pt.size = 0)
+# Finding classifiers for each subpopulation
+Gpnmbmarkers <- FindAllMarkers(gbm.myeloid, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+Gpnmbmarkers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+
+# LLM assignment code ------------------------------------ ## 
+Genes_high <- filter(Gpnmbmarkers, cluster == "GpnmbHigh")
+Genes_low <- filter(Gpnmbmarkers, cluster == "GpnmbLow")
+
+Gene1 <- Genes_high$gene[1:25] ## First LLM 
+Gene2 <- Genes_low$gene[1:25] ## Now non LLM 
+Gene_combined <- c(Gene2, Gene1)
+gbm.myeloid <- ScaleData(gbm.myeloid)
+Idents(gbm.myeloid) <- gbm.myeloid$Gpnmb
+DoHeatmap(object = gbm.myeloid, features = Gene1)  + scale_fill_gradientn(colors = c("cornflowerblue", "white","brown1"))
+```
+
+
+## Calculate % of GPNMBhigh macrophages of total macrophages per sample and generating LLM top 30 genes
+
+```{r}
+Idents(gbm.myeloid) <- gbm.myeloid$clusterf
+DefaultAssay(gbm.myeloid) <- "RNA"
+# Load GPNMBhigh signature as determined in supplementary figure 2a-d
+Gene <- c("Gpnmb",  "Fabp5",  "Hmox1",  "Spp1" ,  "Arg1"  ) # [top 5 genes ofGPNMBhigh signature]
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(gbm.myeloid, features=list(c(Gene)), name="Gene",nbin=100)
+
+## Calculate the average expression of the LLM signature by BMDMs and Microglia
+gbm.myeloid_MDM3_GPNMB <- fdscores[, fdscores$clusterf %in% c("MDM3-GPNMB")]
+gbm.myeloid_MG3_GPNMB <- fdscores[, fdscores$clusterf %in% c( "MG3-GPNMB")]
+df1 <- median(gbm.myeloid_MDM3_GPNMB@meta.data$Gene1) 
+df2 <- median(gbm.myeloid_MG3_GPNMB@meta.data$Gene1) 
+averageLLM <- (df1 + df2)/2
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##create UMAPplots
+DimPlot(gbm.myeloid, reduction = "umap", label = TRUE, pt.size = 0.5) 
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds
+  gbm.myeloid@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.myeloid@meta.data[which(fdscores@meta.data[,i]>averageLLM),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ") ## Use 0.4 for MG
+  
+  ##plot figures
+  plot(DimPlot(gbm.myeloid, pt.size=1,group.by=paste("assignedto",i, sep=""))+labs(title = paste("assignment based on cutoff densityplot ",i, sep=" ")))
+  
+  plot(FeaturePlot(fdscores,pt.size=1, features=i))
+  plot(VlnPlot(fdscores, features=i, group.by="clusterf", pt.size = 0.00001)) + ggtitle("Pseudopalisading Necrosis")
+  plot(VlnPlot(fdscores, features=i, group.by= c("samplename"), pt.size = 0))
+  DimPlot(fdscores, reduction = "umap", group.by = c("clusterf"), label = TRUE, pt.size = 0.5) 
+}
+Idents(gbm.myeloid) <- gbm.myeloid@meta.data$assignedtoGene1
+new.cluster.ids <- c("non-LLMs", "LLMs")
+
+names(new.cluster.ids) <- levels(gbm.myeloid)
+gbm.myeloid <- RenameIdents(gbm.myeloid, new.cluster.ids)
+gbm.myeloid$LLM <- Idents(gbm.myeloid)
+DimPlot(gbm.myeloid, reduction = "umap",  group.by = "LLM", label = F)
+
+LLMmarkers <- FindAllMarkers(gbm.myeloid, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+LLMmarkers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+
+# LLM assignment code ------------------------------------ ## 
+LLM_high <- filter(LLMmarkers, cluster == "LLMs")
+LLM_top30 <- LLM_high$gene[1:30] ## First LLM 
+```
+
+
+# Figure S2F: Generate top30 gene annotation list for LLMs vs non-LLMs, data was used to create graph in Prism
+
+```{r}
+# load the data
+library(readr)
+# load the package
+library(gprofiler2)
+
+macrocluster <- c("non-LLMs")
+genes <- LLMmarkers[which(LLMmarkers$cluster == macrocluster),] 
+gp_up = gost(genes$gene[1:30], organism = "mmusculus")
+nonLLM_check <- gp_up$result
+
+gostplot(gp_up, interactive = T)
+
+## --- ## 
+
+macrocluster <- c("LLMs")
+genes <- LLMmarkers[which(LLMmarkers$cluster == macrocluster),] 
+gp_up = gost(genes$gene[1:30], organism = "mmusculus")
+LLM_check <- gp_up$result
+
+gostplot(gp_up, interactive = T)
+
+library(openxlsx)
+list_of_datasets <- list("non-LLM" = as.data.frame(nonLLM_check[,-14]), "LLM" = as.data.frame(LLM_check[,-14]))
+write.xlsx(list_of_datasets, file = "~/Desktop/non-LLM_vs_LLM.xlsx")
+```
+
+
+# Figure S2G-H: Dimplot and percentage of GPNMB-high macrophages per macrophage cluster
+
+```{r}
+Idents(gbm.myeloid) <- gbm.myeloid$clusterf
+DefaultAssay(gbm.myeloid) <- "RNA"
+# Load GPNMBhigh signature as determined in supplementary figure 2a-d
+Gene <- c("Gpnmb",  "Fabp5",  "Hmox1",  "Spp1" ,  "Arg1"  )
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(gbm.myeloid, features=list(c(Gene)), name="Gene",nbin=100)
+
+## Calculate the average expression of the LLM signature by MDMs and Microglia
+gbm.myeloid_MDM3_GPNMB <- fdscores[, fdscores$clusterf %in% c("MDM3-GPNMB")]
+gbm.myeloid_MG3_GPNMB <- fdscores[, fdscores$clusterf %in% c( "MG3-GPNMB")]
+df1 <- median(gbm.myeloid_MDM3_GPNMB@meta.data$Gene1) 
+df2 <- median(gbm.myeloid_MG3_GPNMB@meta.data$Gene1) 
+averageLLM <- (df1 + df2)/2
+rm(gbm.myeloid_MDM3_GPNMB, gbm.myeloid_MG3_GPNMB)
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##create UMAPplots
+DimPlot(gbm.myeloid, reduction = "umap", label = TRUE, pt.size = 0.5) 
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds
+  gbm.myeloid@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.myeloid@meta.data[which(fdscores@meta.data[,i]>averageLLM),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ") ## Use 0.4 for MG
+  
+  ##plot figures
+  plot(DimPlot(gbm.myeloid, pt.size=1,group.by=paste("assignedto",i, sep=""))+labs(title = paste("assignment based on cutoff densityplot ",i, sep=" ")))
+  
+  plot(FeaturePlot(fdscores,pt.size=1, features=i))
+  plot(VlnPlot(fdscores, features=i, group.by="clusterf", pt.size = 0.00001)) + ggtitle("Pseudopalisading Necrosis")
+  plot(VlnPlot(fdscores, features=i, group.by= c("samplename"), pt.size = 0))
+  DimPlot(fdscores, reduction = "umap", group.by = c("clusterf"), label = TRUE, pt.size = 0.5) 
+}
+Idents(gbm.myeloid) <- gbm.myeloid@meta.data$assignedtoGene1
+new.cluster.ids <- c("non-LLMs", "LLMs")
+
+names(new.cluster.ids) <- levels(gbm.myeloid)
+gbm.myeloid <- RenameIdents(gbm.myeloid, new.cluster.ids)
+gbm.myeloid$LLM <- Idents(gbm.myeloid)
+
+DimPlot(gbm.myeloid, group.by = "LLM", cols = c("#FFA07A", "#AB82FF"), pt.size = 1)
+
+Idents(gbm.myeloid) <- gbm.myeloid$clusterf
+cell.list <- WhichCells(gbm.myeloid, downsample = 1000)
+fdscores_subset <- fdscores[, cell.list]
+table(fdscores_subset$clusterf)
+VlnPlot(fdscores_subset, features = c("Gene1"), split.by = "LLM", cols = c("#FFA07A", "#AB82FF"), pt.size = 0.1)
+table(fdscores_subset$LLM, fdscores_subset$clusterf)
+table(fdscores$LLM, fdscores$clusterf)
+```
+
+
+# Save polished macrophage file
+
+```{r}
+DefaultAssay(gbm.myeloid) <- "RNA"
+
+# Set working directory to folder where integrated and filtered data will be saved: "scrna-seq"
+save(gbm.myeloid,file="~/Desktop/gbm-complete-myeloid_polished.Rda")
+```
