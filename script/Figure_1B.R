@@ -1,0 +1,244 @@
+---
+title: "scRNA-seq pre-processing"
+author: "Daan J. Kloosterman"
+date: "21/02/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pre-processing and identifying cell types in the murine glioblastoma whole tumor scRNA-seq data
+
+This module contains the code used to integrate and filter the pre-processed single cell expression data for further downstream processing. The raw murine single cell expression matrices can be downloaded from (...).
+
+# Loading packages/libraries required for the data pre-processing
+
+```{r}
+library(Seurat)
+```
+
+
+# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+
+```{r}
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/pre-processed scrna-seq"
+setwd(work_dir)
+# Set working directory to folder "processed" 
+
+load("combineddataset_6106.Rdata") # First CD45-/45+ batch
+CD45_1 <- combined
+
+load("Combined_GEX_VDJ.Rda") # Second CD45-/CD45+ batch
+CD45_2 <- comb
+
+load("GEX_VDJ_6407_6410_Merged.Rda") # Third CD45-/45+ batch
+CD45_3 <- merged
+
+load("ink4a_mg-bmdms.Rdata") # MG/BMDM datasets from PDG-Ink4a model (primary and recurrent)
+mg_bmdm_1 <- combined
+
+load("p53_mg-bmdms.Rda") # MG/BMDM datasets from PDG-p53 model (primary and recurrent)
+mg_bmdm_2 <- alldata
+
+load("GEX_6921_ink4a_primary_CD45_d.Rda") # extra sample 1 to replace sample S6018
+GEX_6921 <- counts
+
+load("GEX_6986_ink4a_recurrent_CD45_d.Rda") # extra sample 2 to replace samples S6017
+GEX_6986 <- counts
+
+load("GEX_7103_S1.Rda") # extra recurrent p53 samples
+GEX_7103_S1 <- counts
+
+load("GEX_7103_S2.Rda") # extra recurrent p53 samples
+GEX_7103_S2 <- counts
+
+rm(alldata, combined, comb, merged, counts)
+```
+
+# Data is integrated using integration anchors to correct for batch effect between samples
+
+```{r}
+gbm.list <- c(CD45_1, CD45_2, CD45_3, mg_bmdm_1, mg_bmdm_2, GEX_6921, GEX_6986,  GEX_7103_S1, GEX_7103_S2)
+rm(CD45_1, CD45_2, CD45_3, mg_bmdm_1, mg_bmdm_2, GEX_6921, GEX_6986,  GEX_7103_S1, GEX_7103_S2)
+
+gbm.list <- lapply(X = gbm.list, FUN = function(x) {
+    x <- NormalizeData(x)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
+})
+
+features <- SelectIntegrationFeatures(object.list = gbm.list, nfeatures = 3000)
+gbm.anchors <- FindIntegrationAnchors(object.list = gbm.list,  anchor.features = features)
+rm(gbm.list)
+
+gbm.combined <- IntegrateData(anchorset = gbm.anchors)
+
+rm(gbm.anchors)
+
+save(gbm.combined,file="~/Desktop/gbm-complete.Rda")
+```
+
+
+# Integrated data is filtered based on cell viability (mitochondrial gene expression score) and the nFeature_RNA
+
+```{r}
+DefaultAssay(gbm.combined) <- "RNA"
+
+# Makes a list of mitochondrial genes that start with "Mt-"
+mito.genes <- grep(pattern = "mt-", x = rownames(gbm.combined@assays[["RNA"]]), value = TRUE)
+
+# Calculation of mitochondrial gene expression score
+percent.mito <- Matrix::colSums(gbm.combined@assays[["RNA"]][mito.genes, ])/Matrix::colSums(gbm.combined@assays[["RNA"]])
+
+# Add mitochondrial score to each cell as a varialbe called "percent.mito"
+gbm.combined <- AddMetaData(object = gbm.combined, metadata = percent.mito, col.name = "percent.mito") 
+
+# Visualize cell features, counts and percent.mito per samples to select subset thresholds
+Idents(gbm.combined) <- gbm.combined$orig.ident
+VlnPlot(object = gbm.combined, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+FeatureScatter(object = gbm.combined, feature1 = "nCount_RNA", feature2 = "percent.mito")
+FeatureScatter(object = gbm.combined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+## Design subset based on cutt offs
+gbm.combined_subset <- subset(x = gbm.combined, subset = nFeature_RNA > 1000 & nFeature_RNA < 6000 & percent.mito >  -Inf & percent.mito < 0.1 & nCount_RNA < 30000 & nCount_RNA > 2500)
+
+# Downstream analysis on the clustering will be performed on the corrected data, the original unmodified data still resides in the 'RNA' assay and will be used for gene expression comparisons
+DefaultAssay(gbm.combined_subset) <- "integrated"
+```
+
+
+# Adding annotations to each sample
+
+```{r}
+## Adding an unique sample name to each sample
+gbm.combined_subset$samplename <- plyr::mapvalues(
+    x = gbm.combined$orig.ident,  
+    from = c("A", "B", "C", "D", "X5765_1_BMDM_P", "X5765_2_MG_P", "X5879_1_BMDM_RC", "X5879_2_MG_RC", "X5879_3_MG_NTB", "S6017", "S6018", "S6035", "6160", "6060", "6190", "6198_1", "6198_2", "6407", "6410_S1", "6410_S2", "6921", "6986", "7103_S1", "7103_S2"), 
+    to = c("p53_primary_MG", "p53_primary_BMDM", "p53_recurrent_MG", "p53_recurrent_BMDM", "ink4a_primary_BMDM", "ink4a_primary_MG", "ink4a_recurrent_BMDM", "ink4a_recurrent_MG", "ink4a_ntb_MG", "ink4a_recurrent_CD45_a", "ink4a_primary_CD45_a", "ink4a_primary_CD45_b", "ink4a_primary_CD45_c", "p53_primary_CD45_a", "p53_recurrent_CD45_a", "ink4a_recurrent_CD45_b", "ink4a_recurrent_CD45_c", "p53_primary_CD45_b", "p53_primary_CD45_c", "p53_primary_CD45_d", "ink4a_primary_CD45_d", "ink4a_recurrent_CD45_d", "p53_recurrent_CD45_b", "p53_recurrent_CD45_c" )
+) 
+
+## Adding annotation on the stage of the tumor when it was collected
+gbm.combined_subset$stage <- plyr::mapvalues(
+    x = gbm.combined$orig.ident, 
+    from = c("A", "B", "C", "D", "X5765_1_BMDM_P", "X5765_2_MG_P", "X5879_1_BMDM_RC", "X5879_2_MG_RC", "X5879_3_MG_NTB", "S6017", "S6018", "S6035", "6160", "6060", "6190", "6198_1", "6198_2", "6407", "6410_S1", "6410_S2", "6921", "6986",  "7103_S1", "7103_S2"), 
+    to = c("primary", "primary", "recurrent", "recurrent", "primary", "primary", "recurrent", "recurrent", "ntb", "recurrent", "primary", "primary", "primary", "primary", "recurrent", "recurrent", "recurrent", "primary", "primary", "primary", "primary",  "recurrent", "recurrent", "recurrent")
+) 
+
+## Adding annotation on the genetic background of the tumor from which the sample was collected
+gbm.combined_subset$model <- plyr::mapvalues(
+    x = gbm.combined$orig.ident, 
+    from = c("A", "B", "C", "D", "X5765_1_BMDM_P", "X5765_2_MG_P", "X5879_1_BMDM_RC", "X5879_2_MG_RC", "X5879_3_MG_NTB", "S6017", "S6018", "S6035", "6160", "6060", "6190", "6198_1", "6198_2", "6407", "6410_S1", "6410_S2",  "6921", "6986",  "7103_S1", "7103_S2"), 
+    to = c("p53", "p53", "p53", "p53", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "p53", "p53", "ink4a", "ink4a", "p53", "p53", "p53", "ink4a", "ink4a", "p53", "p53")
+) 
+
+## Adding annotation on the samples that were excluded: sample S6018 as it had a extra-ordinary large tumor volume of 150mm2+, S6017 as it contained no tumor cells and 6190 since we decided not to include the recurrent PDG-p53 sample in this dataset.
+gbm.combined_subset$included <- plyr::mapvalues(
+    x = gbm.combined$orig.ident,  
+    from = c("A", "B", "C", "D", "X5765_1_BMDM_P", "X5765_2_MG_P", "X5879_1_BMDM_RC", "X5879_2_MG_RC", "X5879_3_MG_NTB", "S6017", "S6018", "S6035", "6160", "6060", "6190", "6198_1", "6198_2", "6407", "6410_S1", "6410_S2",  "6921", "6986", "7103_S1", "7103_S2"), 
+    to = c("included", "included", "included", "included", "included", "included", "included", "included", "included", "excluded", "excluded", "included", "included", "included", "included", "included", "included", "included", "included", "included", "included", "included", "included", "included")
+) 
+
+gbm.combined_subset$stage_model <- paste(gbm.combined_subset$stage, gbm.combined_subset$model)
+```
+
+
+# Standard Seurat clustering workflow
+
+```{r}
+# Run the standard workflow for visualization and clustering of integrated and filtered single cell datasets
+gbm.combined_subset <- gbm.combined_subset[, gbm.combined_subset$included %in% c("included")]
+DefaultAssay(gbm.combined_subset) <- "integrated"
+
+gbm.combined_subset <- ScaleData(gbm.combined_subset, verbose = FALSE)
+gbm.combined_subset <- FindVariableFeatures(gbm.combined_subset, verbose = FALSE)
+gbm.combined_subset <- RunPCA(gbm.combined_subset, npcs = 30, verbose = FALSE)
+
+gbm.combined_subset <- RunUMAP(gbm.combined_subset, reduction = "pca", dims = 1:25)
+gbm.combined_subset <- FindNeighbors(gbm.combined_subset, reduction = "pca", dims = 1:30)
+gbm.combined_subset <- FindClusters(gbm.combined_subset, resolution = 0.15, algorithm = 1)
+
+p1 <- DimPlot(gbm.combined_subset, reduction = "umap", group.by = "seurat_clusters")
+p2 <- DimPlot(gbm.combined_subset, reduction = "umap", group.by = "samplename", label = TRUE,
+    repel = TRUE)
+p1 + p2
+```
+
+
+# Annotating cell types
+
+```{r}
+## Assay is set to "RNA" as we will compare RNA expression between clusters
+DefaultAssay(gbm.combined_subset) <- "RNA"
+p3 <- DotPlot(gbm.combined_subset, group.by = "seurat_clusters", features = c("P2ry12", "Cd74", "Olig1" , "Gfap", "Pecam1", "Cd3e", "Itga4", "Mki67", "Des", "Ccr7", "Clec9a"))
+
+p1 + p3
+
+## Give new ID
+Idents(gbm.combined_subset) <- gbm.combined_subset$seurat_clusters
+new.cluster.ids <- c("MDMs","Tumor cells",	"MG",	"DCs", "Tumor cells","T cells", "MDMs", "Rest","Pericytes","Endothelial cells", "Astrocytes", "DCs"	)
+names(new.cluster.ids) <- levels(gbm.combined_subset)
+gbm.combined_subset <- RenameIdents(gbm.combined_subset, new.cluster.ids)
+gbm.combined_subset$celltype <- Idents(gbm.combined_subset) 
+my_levels <-  c(	"MG",	"MDMs", "DCs","T cells",	"Endothelial cells", "Astrocytes","Pericytes","Tumor cells", "Rest")
+
+# Relevel object@ident
+gbm.combined_subset <- gbm.combined_subset[, gbm.combined_subset$celltype %in% c("MG",	"MDMs", "DCs","T cells",	"Endothelial cells", "Astrocytes","Tumor cells", "Pericytes")]
+Idents(gbm.combined_subset) <- factor(Idents(gbm.combined_subset), levels = my_levels)
+gbm.combined_subset$celltype <- Idents(gbm.combined_subset)
+
+## UMAP plot for Figure 1b
+gbm.combined_subset <- RunUMAP(gbm.combined_subset, reduction = "pca", dims = 1:30)
+gbm.combined_subset <- FindNeighbors(gbm.combined_subset, reduction = "pca", dims = 1:30)
+gbm.combined_subset <- FindClusters(gbm.combined_subset, resolution = 0.15, algorithm = 1)
+
+DimPlot(gbm.combined_subset, reduction = "umap", label = F)
+
+table(gbm.combined_subset@meta.data$celltype)
+```
+
+
+# Split dataset for upcoming analyses and figures
+
+```{r}
+## Dataset is split into a macrophage and tumor cell dataset
+gbm.myeloid <- gbm.combined_subset[, gbm.combined_subset$celltype %in% c("MG", "MDMs")]
+
+DefaultAssay(gbm.myeloid) <- "integrated"
+gbm.myeloid <- ScaleData(gbm.myeloid, verbose = FALSE)
+gbm.myeloid <- RunPCA(gbm.myeloid, npcs = 30, verbose = FALSE)
+
+gbm.myeloid <- RunUMAP(gbm.myeloid, reduction = "pca", dims = 1:25)
+gbm.myeloid <- FindNeighbors(gbm.myeloid, reduction = "pca", dims = 1:25)
+gbm.myeloid <- FindClusters(gbm.myeloid, resolution = 0.26, algorithm = 1)
+
+## Prepping tumor cells
+gbm.tumor  <- gbm.combined_subset[, gbm.combined_subset$celltype %in% c("Tumor cells")]
+
+DefaultAssay(gbm.tumor) <- "integrated"
+gbm.tumor <- ScaleData(gbm.tumor, verbose = FALSE)
+gbm.tumor <- RunPCA(gbm.tumor, npcs = 30, verbose = FALSE)
+
+gbm.tumor <- RunUMAP(gbm.tumor, reduction = "pca", dims = 1:30)
+gbm.tumor <- FindNeighbors(gbm.tumor, reduction = "pca", dims = 1:30)
+gbm.tumor <- FindClusters(gbm.tumor, resolution = 0.3, algorithm = 1)
+```
+
+
+# Figure 1B: Annotation of unsupervised clusters as tumor cells, astrocytes, endothelial, T-cells, MDMs and MG based on the expression of cell specific markers, respectively Olig2, Gfap, Pecam1, Cd3e, Itga4 and P2ry12. Only PDG-Ink4a model is shown.
+
+```{r}
+## UMAP plot for Figure 1b
+DimPlot(gbm.combined_subset, reduction = "umap", label = F)
+```
+
+
+# Saving data for downstream analyses
+
+```{r}
+save(gbm.combined_subset,file="~/Desktop/gbm-complete-subset.Rda")
+save(gbm.myeloid,file="~/Desktop/gbm-complete-myeloid.Rda")
+save(gbm.tumor,file="~/Desktop/gbm-complete-tumor.Rda")
+```
