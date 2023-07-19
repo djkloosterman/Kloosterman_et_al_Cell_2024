@@ -1,0 +1,195 @@
+---
+title: "Figure 2D-G"
+author: "Daan J. Kloosterman"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Co-localisation analysis of macrophage subsets, glioblastoma cellular subtype and anatamical niches
+
+Using the modules applied on the VISIUM 10x dataset in the script for Figure 2B, we will perform a co-localisation analysis to understand which cell types are more probable to co-localise within the tumor. In addition, we will quantify the composition of cell types and compare their dynamics between primary and recurrent tumors.
+
+# Loading packages/libraries required for the data pre-processing
+
+```{r}
+library(Seurat)
+library(nichenetr)
+library(readxl)
+library(dplyr)
+library(readr)
+library(nichenetr)
+library(dplyr)
+```
+
+
+# Load data
+
+```{r}
+setwd("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2022 - data availibility/GEO Data - processed/visium") 
+gbm.merged <- readRDS("visium_merged_complete.rds")
+```
+
+
+## Select only tumor data
+
+```{r}
+DefaultAssay(gbm.merged) <- "Spatial"
+VlnPlot(gbm.merged, features = "nCount_Spatial", pt.size = 0.1, group.by = c("orig.ident")) + NoLegend()
+```
+
+# Figure 2D (1): Data generated to create correlation plot between different spot assignments. Heatmap generated in this chuck was remodelled in illustrator for aestatic purposes.
+
+```{r}
+gbm.merged_2 <- gbm.merged[, gbm.merged$Macrophage_score %in% c("Macrophage")]
+
+Idents(gbm.merged_2) <- gbm.merged_2$orig.ident
+gbm.merged_2 <- RenameIdents(object = gbm.merged_2, "S1_2" = "S9",
+                                                "S2_2" = "S10",
+                           "S3_2" = "S11",
+                           "S4_2" = "S12",
+                           "S5_2" = "S13",
+                           "S6_2" = "S14",
+                           "S7_2" = "S15",
+                           "S8_2" = "S16"
+                           )
+gbm.merged_2$orig.ident <- Idents(gbm.merged_2)
+correlation <- gbm.merged_2@meta.data
+
+## Make LLM score
+DefaultAssay(gbm.merged_2) <- "SCT"
+## LLM 5 gene signature
+Gene <- c("Gpnmb",  "Fabp5",  "Hmox1",  "Spp1" ,  "Arg1")
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+
+gbm.merged_2 <- NormalizeData(gbm.merged_2) # Needs to be normalised 
+fdscores <- AddModuleScore(gbm.merged_2, features= list(c(Gene)), name="Gene",nbin=100)
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds of 0.1
+  gbm.merged@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.merged@meta.data[which(fdscores@meta.data[,i]>0.1),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+  fdscores_llm <- fdscores
+}
+
+correlation_llm <- fdscores@meta.data # acquired from Figure 1k
+                            
+correlation_perwell <- data.frame(correlation$MES1.Score, correlation$MES2.Score, correlation$AC.Score, correlation$NPC1.Score, correlation$NPC2.Score, correlation$OPC.Score,  correlation$PAN.Score, correlation$LE.Score, correlation$MVP.Score, correlation$CT.Score,  correlation$M01.Score, correlation$M02.Score, correlation$M03.Score,correlation$B01.Score, correlation$B02.Score, correlation$B03.Score, correlation_llm$Gene1)
+
+
+library(corrplot)
+library("PerformanceAnalytics")
+library(RColorBrewer)
+
+corrplot(cor(correlation_perwell),  
+         tl.col = "black", # Labels color
+         bg = "white",     # Background color
+          col=brewer.pal(n=8, name="PRGn"))       # Color palette
+
+chart.Correlation(cor(correlation_perwell), histogram=TRUE, pch=20)
+```
+
+
+# Figure 2D (1): Assessing the fold-change of the various cell types and tumor areas between primary and recurrent PDG-Ink4a and PDG-shp53 mice.
+
+```{r}
+gbm.merged_quantify <- gbm.merged[, gbm.merged$tissue %in% c("Tumor")]
+Idents(gbm.merged_quantify) <- gbm.merged_quantify$orig.ident
+gbm.merged_quantify <- RenameIdents(object = gbm.merged_quantify, "S1_2" = "S9",
+                                                "S2_2" = "S10",
+                           "S3_2" = "S11",
+                           "S4_2" = "S12",
+                           "S5_2" = "S13",
+                           "S6_2" = "S14",
+                           "S7_2" = "S15",
+                           "S8_2" = "S16"
+                           )
+gbm.merged_quantify$orig.ident <- Idents(gbm.merged_quantify)
+
+table_TME <- table(gbm.merged_quantify$TME, gbm.merged_quantify$orig.ident)
+table_CellSubtype <- table(gbm.merged_quantify$Cell.Subtype, gbm.merged_quantify$orig.ident)
+table_IVY <- table(gbm.merged_quantify$Location, gbm.merged_quantify$orig.ident)
+table_LLM <- table(gbm.merged_quantify$LLM, gbm.merged_quantify$orig.ident)
+
+library(openxlsx)
+write.xlsx(table_TME, file="~/Desktop/table_fractions-TME.xlsx", sheetName="table_TME", append=TRUE, rowNames = F)
+write.xlsx(table_CellSubtype, file="~/Desktop/table_fractions-Neftel.xlsx", sheetName="table_CellSubtype", append=TRUE, rowNames = F)
+write.xlsx(table_IVY, file="~/Desktop/table_fractions-IVY.xlsx", sheetName="table_IVY", append=TRUE, rowNames = F)
+write.xlsx(table_LLM, file="~/Desktop/table_fractions-LLM.xlsx", sheetName="table_LLM", append=TRUE, rowNames = F)
+
+```
+
+
+# Figure 2E-G Representative visualization of VISIUM 10X spatial transcriptomic analyses in recurrent PDG-Ink4a glioblastoma, highlighting GPNMBhigh deserted and enriched areas
+
+```{r}
+DotPlot(gbm.merged, features = c("Ap1m1", "Ap1m2", "Vim", "Stat3", "Ptprz1", "Nfkb1", "Relb", "Csf1", "Bmi1", "Cd44", "Chil3", "Yap1", "Sox2", "Tlk1", "Chek2", "Hdac9"), group.by = "TME")
+p1 <- SpatialFeaturePlot(gbm.merged, features = c("Gpnmb"), image.alpha = 1, images = c("Ink4a_Prim_S8_2"))
+p2 <- SpatialDimPlot(gbm.merged, group.by = "tissue", images = c("Ink4a_Prim_S8_2"), alpha = 1)
+p3 <- SpatialDimPlot(gbm.merged, group.by = "Location", images = c("Ink4a_Prim_S8_2")) 
+
+p1 + p2 + p3
+
+my_levels <-  c("MG1-P2RY12",	"MG2-TNF", "MG3-GPNMB" ,	"MDM1-CCR7",	"MDM2-H2-EB1", "MDM3-GPNMB", "NA")
+
+# Relevel object@ident
+Idents(gbm.merged) <- factor(Idents(gbm.merged), levels = my_levels)
+gbm.merged$TME <- Idents(gbm.merged)
+
+ggplotColours <- function(n = 6, h = c(0, 360) + 15){
+  if ((diff(h) %% 360) < 1) h[2] <- h[2] - 360/n
+  hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
+}
+
+color_list <- ggplotColours(n=6)
+color_list <- c(color_list, "grey")
+
+Idents(gbm.merged) <- gbm.merged$TME
+
+SpatialDimPlot(gbm.merged, group.by = "TME",   stroke = 0,   image.alpha = 0, alpha = 1, 
+   images = c("Ink4a_Prim_S8_2")) + scale_fill_manual(values = color_list)
+
+SpatialDimPlot(gbm.merged,  stroke = 0,   image.alpha = 0, alpha = 1, images = c("Ink4a_Prim_S8_2"), cells.highlight = CellsByIdentities(gbm.merged), facet.highlight = TRUE,  ncol = 4)
+
+## Figure 2E-G
+SpatialDimPlot(gbm.merged[, gbm.merged$TME %in% c("MG1-P2RY12",	"MG2-TNF", "MG3-GPNMB" ,	"MDM1-CCR7",	"MDM2-H2-EB1", "MDM3-GPNMB")], group.by = "LLM",   stroke = 0,   image.alpha = 1, alpha = 1, 
+   images = c("Ink4a_Rec_S2")) + scale_fill_manual(values =  c("#FFA07A", "#AB82FF"))
+SpatialDimPlot(gbm.merged, group.by = "Cell.Subtype",stroke = 0,  images = c("Ink4a_Rec_S2"), image.alpha = 0) + scale_fill_manual(values = c("darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3", "NA" ))
+SpatialDimPlot(gbm.merged, group.by = "Location",stroke = 0,  images = c("Ink4a_Rec_S2"), image.alpha =  0) + scale_fill_manual(values = c("orange", "violetred1", "darkolivegreen3","lightblue", "grey")) 
+```
