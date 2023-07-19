@@ -26,6 +26,3 @@ We provide access to following datasets:
   - Lipidomics on tumor interstitial fluid (TIF) from non-tumor bearing brain, primary and recurrent PDG-Ink4a tumors
   - Lipidomics and proteomics on myelin isolated from non-tumor bearing brain, primary and recurrent PDG-Ink4a tumors
 
-
-# Making the figures
-
