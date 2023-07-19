@@ -1,0 +1,649 @@
+---
+title: "Figure 1E-H"
+author: "Daan J. Kloosterman"
+date: "7/19/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Figure 1E-H - Understanding macrophage heterogeneity in the context of glioblastoma
+
+In this modules, we perform various analyses on the subsetted macrophages from the GEMM single cell dataset to increase our understanding in their function, localisation, dynamics and correlation with particular glioblastoma cellular subtypes
+
+# Loading packages/libraries required for the upcoming codes
+
+```{r}
+library(Seurat)
+library(readxl)
+library(dplyr)
+library(nichenetr)
+library(ggplot2)
+library(corrplot)
+library(PerformanceAnalytics)
+```
+
+
+# Loading myeloid dataset
+
+```{r}
+# Set working directory to folder "pre-processed human scrna-seq" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
+setwd(work_dir)
+
+load("gbm-complete-myeloid.Rda")
+load("gbm-complete-subset.Rda")
+```
+
+
+# Removing "doublets" and other cell types (tumor cells, T cells, endothelial cells, sstrocytes and dendritic cells)
+
+```{r}
+# Plotting the tumor cell dataset
+DimPlot(gbm.myeloid, reduction = "umap", group.by = "seurat_clusters")
+
+
+# Remove doublets with other cell types (Olig1 = Tumor cells, Cd3e = T cells and Pecam1 = Endothelial cell specific, Gfap = Astrocyte specific, Ccr7 = Dedritic cell specific)
+DefaultAssay(gbm.myeloid) <- "RNA"
+fdscores <- AddModuleScore(gbm.myeloid, features=list(c("Olig1", "Cd3e", "Pecam1", "Gfap", "Ccr7")), name="Gene",nbin=100)
+
+                           
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+## A density plot is made of the fds score, everything above a score of 0 is considered a doublet with another cell type
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds of 0.1
+  gbm.myeloid@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.myeloid@meta.data[which(fdscores@meta.data[,i]>0),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+}
+
+## Doublets are removed
+Idents(gbm.myeloid) <- gbm.myeloid@meta.data$assignedtoGene1
+new.cluster.ids <- c("Macrophages", "Doublets")
+
+names(new.cluster.ids) <- levels(gbm.myeloid)
+gbm.myeloid <- RenameIdents(gbm.myeloid, new.cluster.ids)
+gbm.myeloid$celltype <- Idents(gbm.myeloid)
+
+DimPlot(gbm.myeloid, reduction = "umap", group.by = "celltype")
+
+## Clean up the data by removing doublets cells 
+gbm.myeloid <- gbm.myeloid[, gbm.myeloid$celltype %in% c("Macrophages")]
+
+DefaultAssay(gbm.myeloid) <- "integrated"
+gbm.myeloid <- RunUMAP(gbm.myeloid, reduction = "pca", dims = 1:30)
+gbm.myeloid <- FindNeighbors(gbm.myeloid, reduction = "pca", dims = 1:30)
+gbm.myeloid <- FindClusters(gbm.myeloid, resolution = 0.36, algorithm = 2)
+
+DimPlot(gbm.myeloid, reduction = "umap", group.by = "seurat_clusters")
+
+# Remove small unknown cluster and re-cluster
+gbm.myeloid <- gbm.myeloid[, gbm.myeloid$seurat_clusters %in% c("0", "1", "2", "3", "4", "5", "6", "7", "8","9")]
+gbm.myeloid <- RunUMAP(gbm.myeloid, reduction = "pca", dims = 1:30)
+gbm.myeloid <- FindNeighbors(gbm.myeloid, reduction = "pca", dims = 1:30)
+gbm.myeloid <- FindClusters(gbm.myeloid, resolution = 0.3, algorithm = 3)
+DimPlot(gbm.myeloid, reduction = "umap", group.by = "seurat_clusters")
+```
+
+
+# Assign cluster names based on signature gene expresssion that will be found in: gbm.myeloid_markers_top30 (generated at the end of this chunk)
+
+```{r}
+DefaultAssay(gbm.myeloid) <- "RNA"
+
+p1 <- DimPlot(gbm.myeloid, reduction = "umap", group.by = "seurat_clusters", label = T) + NoLegend()
+
+p2 <- DotPlot(gbm.myeloid, group.by = "seurat_clusters",features = c("P2ry12", "Tnf", "Mki67","Ccr2", "H2-Eb1", "Gpnmb"))
+
+p1 + p2
+
+
+## Give names to clusters
+Idents(gbm.myeloid) <- gbm.myeloid$seurat_clusters
+new.cluster.ids <- c("MDM2-H2-EB1",
+                     "MG2-TNF",
+                     "MDM3-GPNMB", 
+                     "MDM1-CCR2",
+                     "MG1-P2RY12",
+                     "MDM4-MKI67",	
+                     "MG4-MKI67",
+                      "MG3-GPNMB"
+                )
+names(new.cluster.ids) <- levels(gbm.myeloid)
+gbm.myeloid <- RenameIdents(gbm.myeloid, new.cluster.ids)
+gbm.myeloid$Cell.Subtype <- Idents(gbm.myeloid)
+
+DimPlot(gbm.myeloid, reduction = "umap", label = T, group.by = "Cell.Subtype")
+
+## Relevel
+my_levels <-  c("MG1-P2RY12",	
+                "MG2-TNF",
+                "MG3-GPNMB",
+                "MG4-MKI67",
+                "MDM1-CCR2",
+                "MDM2-H2-EB1",
+                "MDM3-GPNMB",
+                "MDM4-MKI67" )
+
+Idents(gbm.myeloid) <- factor(Idents(gbm.myeloid), levels = my_levels)
+gbm.myeloid$clusterf <- Idents(gbm.myeloid)
+DimPlot(gbm.myeloid, reduction = "umap", label = TRUE, repel = T)
+Idents(gbm.myeloid) <- gbm.myeloid$clusterf
+
+
+x_abundance <- t(table(gbm.myeloid$clusterf, gbm.myeloid$samplename))
+write.csv(x_abundance, file = "~/Desktop/x_abundance_MacrophageSubset-mouse-complete.csv")
+
+# Finding classifiers for each subpopulation
+gbm.myeloid_markers <- FindAllMarkers(gbm.myeloid, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+gbm.myeloid_markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+
+gbm.myeloid_markers_top30 <- gbm.myeloid_markers %>% group_by(cluster) %>% top_n(n = 30, wt = avg_log2FC)
+
+write.csv(gbm.myeloid_markers_top30, file = "~/Desktop/Top30genes.csv")
+```
+
+
+# Figure 1E: UMAP of macrophage clusters defined by unsupervised clustering
+
+```{r}
+DimPlot(gbm.myeloid, reduction = "umap", group.by = "clusterf", label = F) + NoLegend()
+```
+
+
+# Figure 1F: Pathway activity analysis on macrophage clusters (Gene Ontogeny (GO) defined relevant pathways from Figure S2C-D) 
+
+```{r}
+DefaultAssay(gbm.myeloid) <- "RNA"
+
+# Set working directory to folder "signatures" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures"
+setwd(work_dir)
+
+# Load relevant GO pathways signatures
+GOlist <- read_excel("GOlist.xlsx")
+
+my_levels <- c("MG1-P2RY12",	
+                "MG2-TNF",
+                "MG3-GPNMB",
+                "MG4-MKI67",
+                "MDM1-CCR2",
+                "MDM2-H2-EB1",
+                "MDM3-GPNMB",
+                "MDM4-MKI67" )
+
+GOlist <- apply(GOlist, 2, as.list)
+
+# Final file
+fdscomplete <- c()
+gbm.myeloid$all <- c("all")
+for (i in 1:37){
+  DefaultAssay(gbm.myeloid) <- "RNA"
+  Gene <- unlist(as.vector(GOlist[[i]]))
+
+# Select the genes from the geneset that are in the Cluster.1 expression data
+Gene <- Gene[Gene %in% rownames(gbm.myeloid)]
+select <- AverageExpression(gbm.myeloid, assays = "RNA", features = c(Gene), group.by = "all")
+select <- unlist(as.vector(select))
+a <- which(select > 1)
+Gene <- Gene[a]
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(gbm.myeloid, features=Gene,  name="Gene",nbin=100)
+
+# Average of fdscores
+filtereddata1 <- fdscores[, fdscores$clusterf %in% c("MG1-P2RY12")] 
+filtereddata2 <- fdscores[, fdscores$clusterf %in% c("MG2-TNF")] 
+filtereddata3 <- fdscores[, fdscores$clusterf %in% c("MG3-GPNMB")] 
+filtereddata4 <- fdscores[, fdscores$clusterf %in% c("MG4-MKI67")] 
+filtereddata5 <- fdscores[, fdscores$clusterf %in% c("MDM1-CCR2")] 
+filtereddata6 <- fdscores[, fdscores$clusterf %in% c("MDM2-H2-EB1")]
+filtereddata7 <- fdscores[, fdscores$clusterf %in% c("MDM3-GPNMB")] 
+filtereddata8 <- fdscores[, fdscores$clusterf %in% c("MDM4-MKI67")] 
+
+df1 <- mean(filtereddata1@meta.data$Gene1)*10000 
+df2 <- mean(filtereddata2@meta.data$Gene1)*10000  
+df3 <- mean(filtereddata3@meta.data$Gene1)*10000 
+df4 <- mean(filtereddata4@meta.data$Gene1) *10000
+df5 <- mean(filtereddata5@meta.data$Gene1) *10000
+df6 <- mean(filtereddata6@meta.data$Gene1) *10000
+df7 <- mean(filtereddata7@meta.data$Gene1) *10000
+df8 <- mean(filtereddata8@meta.data$Gene1) *10000
+
+library(data.table)
+fdscompared <- as.data.frame(cbind(df1, df2, df3, df4, df5,df6, df7, df8))
+fdscompared <- t(fdscompared)
+row.names(fdscompared) <- my_levels
+
+fdscomplete <- cbind(fdscomplete, fdscompared)
+}
+colnames(fdscomplete) <- names(GOlist)
+write.csv2(fdscomplete, "~/Desktop/x_GOscores_macrophageclusters.csv")
+```
+
+
+# Using IVY Gap scoring function to assess pseudolocation of tumor-associated macrophages in glioblastoma
+
+```{r}
+IVYGAPScoring <- function (object, ct.features,  pan.features, le.features, mvp.features ,set.ident = FALSE, ctrl_genes = 100,
+              ...)
+    {
+        name <- "Cell.Cycle"
+        features <- list(  PAN.Score = pan.features, LE.Score =  le.features, MVP.Score = mvp.features, CT.Score = ct.features)
+        object.cc <- AddModuleScore(object = object,
+                                    features = features,
+                                    name = name,
+                                    ctrl = min(c(vapply(X = features, FUN = length, FUN.VALUE = numeric(length = 1))), 
+                                               ctrl_genes), 
+                                    ...)
+        cc.columns <- grep(pattern = name, x = colnames(x = object.cc[[]]),
+                           value = TRUE)
+        cc.scores <- object.cc[[cc.columns]]
+        rm(object.cc)
+        CheckGC()
+        assignments <- apply(X = cc.scores, MARGIN = 1, FUN = function(scores,
+                                                                       first = "PAN", second = "LE", third = "MVP", fourth = "CT", null = "Undecided") {
+            if (all(scores < -0)) {
+                return(null)
+            }
+            else {
+                if (length(which(x = scores == max(scores))) > 1) {
+                    return("Undecided")
+                }
+                else {
+                    return(c(first, second, third, fourth)[which(x = scores == max(scores))])
+                }
+            }
+        })
+        cc.scores <- merge(x = cc.scores, y = data.frame(assignments),
+                           by = 0)
+        colnames(x = cc.scores) <- c("rownames", "PAN.Score", "LE.Score", "MVP.Score","CT.Score",
+                                     "Location")
+        rownames(x = cc.scores) <- cc.scores$rownames
+        cc.scores <- cc.scores[, c("PAN.Score", "LE.Score", "MVP.Score" ,"CT.Score","Location")]
+        object[[colnames(x = cc.scores)]] <- cc.scores
+        if (set.ident) {
+            object[["old.ident"]] <- Idents(object = object)
+            Idents(object = object) <- "Location"
+        }
+        return(object)
+    }
+```
+
+
+# Make celltype specific IVY Gap signatures
+
+```{r}
+# Set working directory to folder "signatures" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures"
+setwd(work_dir)
+
+# Load Ivy GAP gene signatures 
+IVY_gap <- read_excel("IVY_gap_signatures.xlsx")
+IVY_gap$Gene <- IVY_gap$NAME %>% convert_human_to_mouse_symbols() 
+IVY_gap <- IVY_gap[complete.cases(IVY_gap), ]
+
+ct.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "CT")
+pan.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "CTpan")
+le.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "LE")
+mvp.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "CTmvp")
+
+
+ct.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = ct.all, group.by = "celltype")
+ct.expression <- ct.expression$RNA
+ct.expression <- as.data.frame(ct.expression)
+
+pan.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = pan.all, group.by = "celltype")
+pan.expression <- pan.expression$RNA
+pan.expression <- as.data.frame(pan.expression)
+
+le.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = le.all, group.by = "celltype")
+le.expression <- le.expression$RNA
+le.expression <- as.data.frame(le.expression)
+
+mvp.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = mvp.all, group.by = "celltype")
+mvp.expression <- mvp.expression$RNA
+mvp.expression <- as.data.frame(mvp.expression)
+
+rm(gbm.combined_subset)
+```
+
+
+# Figure 1G: Determining pseudolocation of macrophage subsets in glioblastoma using IVY Gap signatures
+
+```{r}
+# Make macrophage specific features
+ct.features <- subset(rownames(ct.expression), subset = ct.expression$`Tumor cells` < 0.25)
+pan.features <-  subset(rownames(pan.expression), subset = pan.expression$`MDMs` > 1.5)
+le.features <-  subset(rownames(le.expression), subset = le.expression$`MDMs` > 0.05)
+mvp.features <-  subset(rownames(mvp.expression), subset = mvp.expression$`MDMs` > 0.6)
+
+
+DefaultAssay(gbm.myeloid) <- "RNA"
+
+gbm.myeloid <- IVYGAPScoring(gbm.myeloid, ct.features = ct.features, pan.features = pan.features, le.features = le.features, mvp.features = mvp.features)
+
+P2 <- DimPlot(gbm.myeloid, reduction = "umap", group.by = "Location", label = F, pt.size = 2, cols = c("orange", "violetred1", "palegreen1","skyblue", "pink") ) + ggtitle("Pseudolocation") 
+
+P1 <- DimPlot(gbm.myeloid, reduction = "umap", group.by = "clusterf", label = F, pt.size = 2 ) + ggtitle("Macrophage Subsets")  
+
+P1 + P2
+
+gbm.myeloid$spatialcluster <- paste(gbm.myeloid$clusterf, gbm.myeloid$Location)
+gbm.myeloid <- gbm.myeloid[, gbm.myeloid$Location %in% c( "MVP", "PAN", "CT", "LE")] 
+
+x_abundance <- t(table( gbm.myeloid$samplename, gbm.myeloid$spatialcluster))
+prop.table(table(Idents(gbm.myeloid), gbm.myeloid$samplename), margin = 2)
+prop.table(table(gbm.myeloid$clusterf, gbm.myeloid$samplename), margin = 2)
+write.csv(x_abundance, file = "~/Desktop/x_gbm-myeloid-IVYGAP.csv")
+```
+
+
+#  Figure 1H (1): Comparing macrophage subset abundance between primary and recurrent tumors (PDG-Ink4 and PDG-shp53 seperatly) using Milo package
+
+```{r}
+library(miloR)
+library(SingleCellExperiment)
+library(scater)
+library(scran)
+library(dplyr)
+library(patchwork)
+library(ggplot2)
+
+DefaultAssay(gbm.myeloid) <- "integrated"
+gbm.myeloid_tumor  <- gbm.myeloid[, gbm.myeloid$stage %in% c("primary", "recurrent")]
+gbm.myeloid_ink4a  <- gbm.myeloid_tumor[, gbm.myeloid_tumor$model %in% c("ink4a")]
+gbm.myeloid_ink4a_mg  <- gbm.myeloid_ink4a[, gbm.myeloid_ink4a$clusterf %in%  
+              c("MG1-P2RY12",	
+                "MG2-TNF",
+                "MG3-GPNMB",
+                "MG4-MKI67")]
+gbm.myeloid_ink4a_mdm  <- gbm.myeloid_ink4a[, gbm.myeloid_ink4a$clusterf %in%  
+              c("MDM1-CCR2",
+                "MDM2-H2-EB1",
+                "MDM3-GPNMB",
+                "MDM4-MKI67")]
+gbm.myeloid_p53  <- gbm.myeloid_tumor[, gbm.myeloid_tumor$model %in% c("p53")]
+gbm.myeloid_p53_mg  <- gbm.myeloid_p53[, gbm.myeloid_p53$clusterf %in%  
+              c("MG1-P2RY12",	
+                "MG2-TNF",
+                "MG3-GPNMB",
+                "MG4-MKI67")]
+gbm.myeloid_p53_mdm  <- gbm.myeloid_p53[, gbm.myeloid_p53$clusterf %in%  
+              c("MDM1-CCR2",
+                "MDM2-H2-EB1",
+                "MDM3-GPNMB",
+                "MDM4-MKI67")]
+
+gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_ink4a_mdm)
+gbm.myeloid_sce
+gbm.myeloid.meta <- gbm.myeloid_sce@metadata
+milo.obj <- Milo(gbm.myeloid_sce)
+milo.obj
+
+# Build a graph and neighbourhoods.
+milo.obj <- buildGraph(milo.obj, k=20, d=30)
+milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
+plotNhoodSizeHist(milo.obj)
+
+# Calculate distances, count cells according to an experimental design and perform DA testing.
+milo.obj <- countCells(milo.obj, meta.data = as.data.frame(colData(milo.obj)), sample="samplename")
+head(nhoodCounts(milo.obj))
+
+gbm.design <- data.frame(colData(milo.obj))[,c("samplename", "stage")]
+
+## Convert batch info from integer to factor
+gbm.design <- distinct(gbm.design)
+rownames(gbm.design) <- gbm.design$samplename
+
+gbm.design
+milo.obj <- calcNhoodDistance(milo.obj, d=30, reduced.dim = "PCA")
+gbm_results <- testNhoods(milo.obj, design = ~ stage, design.df = gbm.design)
+head(gbm_results)
+
+gbm_results %>%
+  arrange(SpatialFDR) %>%
+  head() 
+
+## 2
+ggplot(gbm_results, aes(logFC, -log10(SpatialFDR))) + 
+  geom_point() +
+  geom_hline(yintercept = 1) ## Mark significance threshold (10% FDR)
+
+gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
+head(gbm_results)
+gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
+
+gbm_results$clusterf <- as.factor(gbm_results$clusterf)
+
+gbm_results_selected <- gbm_results %>% 
+             filter(SpatialFDR>=0.1)
+mdm_inka <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MDM1-CCR2",
+                "MDM2-H2-EB1",
+                "MDM3-GPNMB",
+                "MDM4-MKI67"),], group.by = "clusterf", alpha = 1) + 
+    scale_x_discrete(limits=rev)
+
+## MG - ink4a
+gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_ink4a_mg)
+gbm.myeloid_sce
+gbm.myeloid.meta <- gbm.myeloid_sce@metadata
+milo.obj <- Milo(gbm.myeloid_sce)
+milo.obj
+
+# Build a graph and neighbourhoods.
+milo.obj <- buildGraph(milo.obj, k=20, d=30)
+milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
+plotNhoodSizeHist(milo.obj)
+
+# Calculate distances, count cells according to an experimental design and perform DA testing.
+milo.obj <- countCells(milo.obj, meta.data = as.data.frame(colData(milo.obj)), sample="samplename")
+head(nhoodCounts(milo.obj))
+
+gbm.design <- data.frame(colData(milo.obj))[,c("samplename", "stage")]
+
+## Convert batch info from integer to factor
+gbm.design <- distinct(gbm.design)
+rownames(gbm.design) <- gbm.design$samplename
+
+gbm.design
+milo.obj <- calcNhoodDistance(milo.obj, d=30, reduced.dim = "PCA")
+gbm_results <- testNhoods(milo.obj, design = ~ stage, design.df = gbm.design)
+head(gbm_results)
+
+gbm_results %>%
+  arrange(SpatialFDR) %>%
+  head() 
+
+## 2
+ggplot(gbm_results, aes(logFC, -log10(SpatialFDR))) + 
+  geom_point() +
+  geom_hline(yintercept = 1) ## Mark significance threshold (10% FDR)
+
+gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
+head(gbm_results)
+gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
+
+gbm_results$clusterf <- as.factor(gbm_results$clusterf)
+
+gbm_results_selected <- gbm_results %>% 
+             filter(SpatialFDR>=0.1)
+mg_inka <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MG1-P2RY12",	
+                "MG2-TNF",
+                "MG3-GPNMB",
+                "MG4-MKI67"),], group.by = "clusterf", alpha = 1) + 
+    scale_x_discrete(limits=rev)
+
+## MG - p53
+gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_p53_mg)
+gbm.myeloid_sce
+gbm.myeloid.meta <- gbm.myeloid_sce@metadata
+milo.obj <- Milo(gbm.myeloid_sce)
+milo.obj
+
+# Build a graph and neighbourhoods.
+milo.obj <- buildGraph(milo.obj, k=20, d=30)
+milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
+plotNhoodSizeHist(milo.obj)
+
+# Calculate distances, count cells according to an experimental design and perform DA testing.
+milo.obj <- countCells(milo.obj, meta.data = as.data.frame(colData(milo.obj)), sample="samplename")
+head(nhoodCounts(milo.obj))
+
+gbm.design <- data.frame(colData(milo.obj))[,c("samplename", "stage")]
+
+## Convert batch info from integer to factor
+gbm.design <- distinct(gbm.design)
+rownames(gbm.design) <- gbm.design$samplename
+
+gbm.design
+milo.obj <- calcNhoodDistance(milo.obj, d=30, reduced.dim = "PCA")
+gbm_results <- testNhoods(milo.obj, design = ~ stage, design.df = gbm.design)
+head(gbm_results)
+
+gbm_results %>%
+  arrange(SpatialFDR) %>%
+  head() 
+
+## 2
+ggplot(gbm_results, aes(logFC, -log10(SpatialFDR))) + 
+  geom_point() +
+  geom_hline(yintercept = 1) ## Mark significance threshold (10% FDR)
+
+gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
+head(gbm_results)
+gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
+
+gbm_results$clusterf <- as.factor(gbm_results$clusterf)
+
+gbm_results_selected <- gbm_results %>% 
+             filter(SpatialFDR>=0.1)
+mg_p53 <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MG1-P2RY12",	
+                "MG2-TNF",
+                "MG3-GPNMB",
+                "MG4-MKI67"),], group.by = "clusterf", alpha = 1) + 
+    scale_x_discrete(limits=rev)
+
+## MG - p53
+gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_p53_mdm)
+gbm.myeloid_sce
+gbm.myeloid.meta <- gbm.myeloid_sce@metadata
+milo.obj <- Milo(gbm.myeloid_sce)
+milo.obj
+
+# Build a graph and neighbourhoods.
+milo.obj <- buildGraph(milo.obj, k=20, d=30)
+milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
+plotNhoodSizeHist(milo.obj)
+
+# Calculate distances, count cells according to an experimental design and perform DA testing.
+milo.obj <- countCells(milo.obj, meta.data = as.data.frame(colData(milo.obj)), sample="samplename")
+head(nhoodCounts(milo.obj))
+
+gbm.design <- data.frame(colData(milo.obj))[,c("samplename", "stage")]
+
+## Convert batch info from integer to factor
+gbm.design <- distinct(gbm.design)
+rownames(gbm.design) <- gbm.design$samplename
+
+gbm.design
+milo.obj <- calcNhoodDistance(milo.obj, d=30, reduced.dim = "PCA")
+gbm_results <- testNhoods(milo.obj, design = ~ stage, design.df = gbm.design)
+head(gbm_results)
+
+gbm_results %>%
+  arrange(SpatialFDR) %>%
+  head() 
+
+## 2
+ggplot(gbm_results, aes(logFC, -log10(SpatialFDR))) + 
+  geom_point() +
+  geom_hline(yintercept = 1) ## Mark significance threshold (10% FDR)
+
+gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
+head(gbm_results)
+gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
+
+gbm_results$clusterf <- as.factor(gbm_results$clusterf)
+
+gbm_results_selected <- gbm_results %>% 
+             filter(SpatialFDR>=0.1)
+mdm_p53 <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MDM1-CCR2",
+                "MDM2-H2-EB1",
+                "MDM3-GPNMB",
+                "MDM4-MKI67"),], group.by = "clusterf", alpha = 1) + 
+    scale_x_discrete(limits=rev)
+
+mg_inka <- mg_inka + xlab(NULL) + ylab(NULL) + ggtitle("PDG-Ink4a Rec/Prim") + theme(
+plot.title = element_text(color="black", size=20, face="plain",  hjust = 0.5))
+
+mg_p53 <- mg_p53 + theme(axis.text.y=element_blank()) + xlab(NULL)  + ylab(NULL)+  ggtitle("PDG-p53 Rec/Prim") + theme(
+plot.title = element_text(color="black", size=20, face="plain", hjust = 0.5))
+
+mdm_inka <- mdm_inka + xlab(NULL) 
+
+mdm_p53 <- mdm_p53 + theme(axis.text.y=element_blank()) + xlab(NULL)
+
+# Figure 1H
+mg_inka +  mg_p53 + mdm_inka + mdm_p53
+```
+
+
+# Figure 1H (2): Corrrelation plot with glioblastoma cellular subtype and macrophage subsets
+
+```{r}
+corr <- read_excel("correlationplot_macro_subtype.xlsx")
+row.names(corr) <- corr$Sample
+corr$Sample <- NULL
+corrplot(cor(corr),    # Correlation plot method
+         type = "full",    # Correlation plot style (also "upper" and "lower")
+         diag = TRUE,      # If TRUE (default), adds the diagonal
+         tl.col = "black", # Labels color
+         bg = "white",     # Background color
+         title = "",       # Main title
+         col = NULL)       # Color palette
+
+chart.Correlation(corr, histogram=TRUE, pch=20)
+```
+
+
+# Save polished macrophage file
+
+```{r}
+DefaultAssay(gbm.myeloid) <- "RNA"
+
+# Set working directory to folder where integrated and filtered data will be saved: "scrna-seq"
+save(gbm.myeloid,file="~/Desktop/gbm-complete-myeloid_polished.Rda")
+```
