@@ -1,5 +1,7 @@
 # Kloosterman_et_al
 
+![alt text](http://github.com/djkloosterman/Kloosterman_et_al/image-1.png)
+
 This repository contains the matadata necessary for the analysis of the scRNA-seq, VISIUM and other datasets generated and presented in Kloosterman, D.J., Erbani, J., et al. Cell, in revision (2024): _Aberrant myelin-recycling steers lipid-laden macrophage formation in the glioblastoma microenvironment to fuel malignancy_.
 
 All sequencing and -omics data generated in this study is available on NCBI with BioProject ID (t.b.a.) and GEO accession (t.b.a.).
