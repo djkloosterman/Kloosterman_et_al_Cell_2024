@@ -1,4 +1,5 @@
-title: "1. Human Subtype-IVYGAP Validation"
+title: "Supplementary Figure 1A-G
+"
 author: "Daan Kloosterman"
 date: "8/12/2021"
 output: html_document
