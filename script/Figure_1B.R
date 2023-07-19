@@ -1,5 +1,5 @@
 ---
-title: "scRNA-seq pre-processing"
+title: "Figure 1B"
 author: "Daan J. Kloosterman"
 date: "21/02/2021"
 output: html_document
