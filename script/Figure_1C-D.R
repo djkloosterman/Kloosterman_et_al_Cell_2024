@@ -1,0 +1,571 @@
+---
+title: "Figure 1C-D"
+author: "Daan J. Kloosterman"
+date: "7/16/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Analysing glioblastoma tumor cellular subtype heterogeneity in GEMM with PDG-Ink4a and PDG-shp53 background
+
+This modules contains the code to generate Figure 1C and the data to make Figure 1D, which includes a function to  assign an unbiased glioblastoma cellular subtype identity and its pseudolocation to each individual tumor cell. Here, we assign tumor cell classifications later used in downstream analyses in the manuscript.
+
+# Loading packages/libraries required for the code
+
+```{r}
+library(Seurat)
+library(nichenetr)
+library(ggplot2)
+```
+
+
+# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+
+```{r}
+# Set working directory to folder "pre-processed human scrna-seq" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
+setwd(work_dir)
+load("gbm-complete-tumor.Rda")
+load("gbm-complete-subset.Rda")
+
+```
+
+
+# Cleaning up the selected tumor cells from the combined dataset - PDG-Ink4a model
+
+```{r}
+## Plotting the tumor cell dataset
+# gbm.tumor <- SCTransform(gbm.tumor)
+
+DimPlot(gbm.tumor, reduction = "umap", group.by = "seurat_clusters")
+
+
+gbm.tumor_ink4a <- gbm.tumor[, gbm.tumor$samplename %in% c("ink4a_primary_CD45_b", "ink4a_primary_CD45_c", "ink4a_primary_CD45_d", "ink4a_recurrent_CD45_b", "ink4a_recurrent_CD45_c", "ink4a_recurrent_CD45_d")]
+
+# Remove doublets with other cell types (AP2ry12 = MG, Aif1 = MDMs, Cd3e = T cells and Pecam1 = Endothelial cell specific)
+DefaultAssay(gbm.tumor_ink4a) <- "RNA"
+fdscores <- AddModuleScore(gbm.tumor_ink4a, features=list(c("P2ry12","Aif1", "Cd3e", "Pecam1", "Des", "Gfap", "Ccr7", "Clec4e")), name="Gene",nbin=100)
+
+                           
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+## A density plot is made of the fds score, everything above a score of 0 is considered a doublet with another cell type
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds of 0.1
+  gbm.tumor_ink4a@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.tumor_ink4a@meta.data[which(fdscores@meta.data[,i]>0),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+}
+
+## Doublets are removed
+Idents(gbm.tumor_ink4a) <- gbm.tumor_ink4a@meta.data$assignedtoGene1
+new.cluster.ids <- c( "Doublets", "Tumor cells")
+
+names(new.cluster.ids) <- levels(gbm.tumor_ink4a)
+gbm.tumor_ink4a <- RenameIdents(gbm.tumor_ink4a, new.cluster.ids)
+gbm.tumor_ink4a$celltype <- Idents(gbm.tumor_ink4a)
+
+DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "celltype")
+
+## Clean up the data by removing doublets cells 
+gbm.tumor_ink4a <- gbm.tumor_ink4a[, gbm.tumor_ink4a$celltype %in% c("Tumor cells")]
+
+DefaultAssay(gbm.tumor_ink4a) <- "integrated"
+gbm.tumor_ink4a <- RunUMAP(gbm.tumor_ink4a, reduction = "pca", dims = 1:30)
+gbm.tumor_ink4a <- FindNeighbors(gbm.tumor_ink4a, reduction = "pca", dims = 1:30)
+gbm.tumor_ink4a <- FindClusters(gbm.tumor_ink4a, resolution = 0.3, algorithm = 1)
+
+## Plotting the tumor cell dataset and removing outlier cluster
+DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "seurat_clusters")
+gbm.tumor_ink4a <- gbm.tumor_ink4a[, gbm.tumor_ink4a$seurat_clusters %in% c("0", "1", "2", "3", "5")]
+
+DefaultAssay(gbm.tumor_ink4a) <- "integrated"
+gbm.tumor_ink4a <- RunUMAP(gbm.tumor_ink4a, reduction = "pca", dims = 1:30)
+
+DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "stage_model")
+```
+
+
+# Cleaning up the selected tumor cells from the combined dataset - PDG-shp53 model
+
+```{r}
+## Plotting the tumor cell dataset
+# gbm.tumor <- SCTransform(gbm.tumor)
+
+DimPlot(gbm.tumor, reduction = "umap", group.by = "seurat_clusters")
+
+
+gbm.tumor_p53 <- gbm.tumor[, gbm.tumor$samplename %in% c( "p53_primary_CD45_a", "p53_primary_CD45_b", "p53_primary_CD45_c", "p53_primary_CD45_d", "p53_recurrent_CD45_a", "p53_recurrent_CD45_b", "p53_recurrent_CD45_c")]
+
+
+# Remove doublets with other cell types (AP2ry12 = MG, Aif1 = MDMs, Cd3e = T cells and Pecam1 = Endothelial cell specific)
+DefaultAssay(gbm.tumor_p53) <- "RNA"
+fdscores <- AddModuleScore(gbm.tumor_p53, features=list(c("P2ry12","Aif1", "Cd3e", "Pecam1", "Des", "Gfap", "Ccr7", "Clec4e")), name="Gene",nbin=100)
+
+                           
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+## A density plot is made of the fds score, everything above a score of 0 is considered a doublet with another cell type
+for (i in groups){
+  ##create densityplots and set cut-offs
+  vl <- densMode(fdscores@meta.data[,i])[1]
+  vl2 <- densMode(fdscores@meta.data[,i])[2]
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
+  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
+    abline(v=vl$minx[2])
+    threshold=vl$minx[2]
+  }else{
+    abline(v=vl$minx[1], col="red")
+    threshold=vl$minx[1]
+  }
+  #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
+  #abline(h=500)
+  #abline(v=vl2$maxy, col="red")
+  
+  ##classify the cells based on thresholds of 0.1
+  gbm.tumor_p53@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.tumor_p53@meta.data[which(fdscores@meta.data[,i]>0),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+}
+
+## Doublets are removed
+Idents(gbm.tumor_p53) <- gbm.tumor_p53@meta.data$assignedtoGene1
+new.cluster.ids <- c( "Doublets", "Tumor cells")
+
+names(new.cluster.ids) <- levels(gbm.tumor_p53)
+gbm.tumor_p53 <- RenameIdents(gbm.tumor_p53, new.cluster.ids)
+gbm.tumor_p53$celltype <- Idents(gbm.tumor_p53)
+
+DimPlot(gbm.tumor_p53, reduction = "umap", group.by = "celltype")
+
+## Clean up the data by removing doublets cells 
+gbm.tumor_p53 <- gbm.tumor_p53[, gbm.tumor_p53$celltype %in% c("Tumor cells")]
+
+DefaultAssay(gbm.tumor_p53) <- "integrated"
+gbm.tumor_p53 <- RunUMAP(gbm.tumor_p53, reduction = "pca", dims = 1:30)
+gbm.tumor_p53 <- FindNeighbors(gbm.tumor_p53, reduction = "pca", dims = 1:30)
+gbm.tumor_p53 <- FindClusters(gbm.tumor_p53, resolution = 0.3, algorithm = 1)
+
+DefaultAssay(gbm.tumor_p53) <- "RNA"
+
+## Plotting the tumor cell dataset and removing outlier cluster
+DimPlot(gbm.tumor_p53, reduction = "umap", group.by = "seurat_clusters")
+
+DefaultAssay(gbm.tumor_p53) <- "integrated"
+DimPlot(gbm.tumor_p53, reduction = "umap", group.by = "stage_model")
+```
+
+
+# Make gloioblastoma cellular subtpye (Neftel et al., 2019) mouse meta modules
+
+```{r}
+library(readxl)
+library(nichenetr)
+
+DefaultAssay(gbm.tumor_ink4a) <- "RNA"
+DefaultAssay(gbm.tumor_p53) <- "RNA"
+
+# Loading glioblastoma cellular subtype modules (Neftel et al., 2019)
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures"
+setwd(work_dir)
+Cell_Signatures <- read_excel("Glioblastoma_meta-module_genelist.xlsx")
+
+MES1.features <- convert_human_to_mouse_symbols(Cell_Signatures$MES1)
+MES2.features <- convert_human_to_mouse_symbols(Cell_Signatures$MES2)
+AC.features <- convert_human_to_mouse_symbols(Cell_Signatures$AC)
+OPC.features <- convert_human_to_mouse_symbols(Cell_Signatures$OPC)
+NPC1.features <- convert_human_to_mouse_symbols(Cell_Signatures$NPC1)
+NPC2.features <- convert_human_to_mouse_symbols(Cell_Signatures$NPC2)
+
+## Function to assign cellular subtype
+assignSubtype <- function (object, MES1.features,  MES2.features, AC.features, OPC.features, NPC1.features, NPC2.features ,set.ident = FALSE, ctrl_genes = 100,
+                           ...)
+{
+  name <- "Cell.Subtype"
+  features <- list(  MES1.Score = MES1.features, MES2.Score =  MES2.features, AC.Score = AC.features, OPC.Score = OPC.features, NPC1.Score = NPC1.features, NPC2.Score = NPC2.features)
+  object.cc <- AddModuleScore(object = object,
+                              features = features,
+                              name = name,
+                              ctrl = min(c(vapply(X = features, FUN = length, FUN.VALUE = numeric(length = 1))), 
+                                         ctrl_genes), 
+                              ...)
+  cc.columns <- grep(pattern = name, x = colnames(x = object.cc[[]]),
+                     value = TRUE)
+  cc.scores <- object.cc[[cc.columns]]
+  rm(object.cc)
+  CheckGC()
+  assignments <- apply(X = cc.scores, MARGIN = 1, FUN = function(scores,
+                                                                 first = "MES1", second = "MES2", third = "AC", fourth = "OPC", fifth = "NPC1", sixth = "NPC2", null = "Undecided") {
+    if (all(scores < -0)) {
+      return(null)
+    }
+    else {
+      return(c(first, second, third, fourth, fifth, sixth)[which(x = scores == max(scores))])
+    }
+  }
+  )
+  cc.scores <- merge(x = cc.scores, y = data.frame(assignments),
+                     by = 0)
+  colnames(x = cc.scores) <- c("rownames", "MES1.Score", "MES2.Score", "AC.Score","OPC.Score", "NPC1.Score", "NPC2.Score",
+                               "Cell.Subtype")
+  rownames(x = cc.scores) <- cc.scores$rownames
+  cc.scores <- cc.scores[, c("MES1.Score", "MES2.Score", "AC.Score","OPC.Score", "NPC1.Score", "NPC2.Score","Cell.Subtype")]
+  object[[colnames(x = cc.scores)]] <- cc.scores
+  if (set.ident) {
+    object[["old.ident"]] <- Idents(object = object)
+    Idents(object = object) <- "Cell.Subtype"
+  }
+  return(object)
+}
+
+gbm.tumor_ink4a <- assignSubtype(gbm.tumor_ink4a, MES1.features = MES1.features, MES2.features = MES2.features, AC.features = AC.features, OPC.features = OPC.features, NPC1.features = NPC1.features, NPC2.features = NPC2.features)
+
+gbm.tumor_p53 <- assignSubtype(gbm.tumor_p53, MES1.features = MES1.features, MES2.features = MES2.features, AC.features = AC.features, OPC.features = OPC.features, NPC1.features = NPC1.features, NPC2.features = NPC2.features)
+
+# Plot cellular celltype distribution
+DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "Cell.Subtype", pt.size = 2)
+DimPlot(gbm.tumor_p53, reduction = "umap", group.by = "Cell.Subtype", pt.size = 2)
+
+# Merge data and create .csv file with subtype composition per samples
+gbm.tumor_m <- merge(gbm.tumor_ink4a, gbm.tumor_p53)
+x_abundance <- t(table(gbm.tumor_m$Cell.Subtype, gbm.tumor_m$samplename))
+write.csv(x_abundance, file = "~/Desktop/x_abundance_Cell.Subtype-mouse-complete.csv")
+
+# Prepare data
+gbm.tumor_m <- gbm.tumor_m[, gbm.tumor_m$Cell.Subtype %in% c("AC", "MES1", "MES2", "NPC1", "NPC2", "OPC")]
+gbm.tumor_m$MES.Score <- (gbm.tumor_m$MES1.Score + gbm.tumor_m$MES2.Score)/2
+gbm.tumor_m$NPC.Score <- (gbm.tumor_m$NPC1.Score + gbm.tumor_m$NPC2.Score)/2
+
+# D = max(SCopc,SCnpc) - max(SCac,SCmes)
+gbm.tumor_m$max_OPC_NPC = ifelse(
+  gbm.tumor_m$NPC.Score > gbm.tumor_m$OPC.Score, 
+  gbm.tumor_m$NPC.Score, 
+  gbm.tumor_m$OPC.Score)
+
+gbm.tumor_m$max_AC_MES = ifelse(
+  gbm.tumor_m$AC.Score > gbm.tumor_m$MES.Score, 
+  gbm.tumor_m$AC.Score, 
+  gbm.tumor_m$MES.Score)
+
+gbm.tumor_m$D = gbm.tumor_m$max_OPC_NPC - gbm.tumor_m$max_AC_MES
+
+gbm.tumor_m$x_axis <- ifelse(
+  gbm.tumor_m$D > 0,
+  log2(gbm.tumor_m$OPC.Score - gbm.tumor_m$NPC.Score+1),
+  log2(gbm.tumor_m$AC.Score - gbm.tumor_m$MES.Score+1))
+
+
+Idents(gbm.tumor_m) <- gbm.tumor_m$samplename
+
+scatter <- subset(gbm.tumor_m, downsample = 500)
+table(scatter@meta.data$samplename)
+```
+
+
+# Cellular state plot
+
+```{r}
+## Give new ID - ink4a
+DimPlot(gbm.tumor_ink4a, group.by = "Cell.Subtype", reduction = "umap")
+Idents(gbm.tumor_ink4a) <- gbm.tumor_ink4a$Cell.Subtype
+new.cluster.ids <- c("AC",	"MES",	"MES", "OPC", "NPC","NPC", "Undecided")
+names(new.cluster.ids) <- levels(gbm.tumor_ink4a)
+gbm.tumor_ink4a <- RenameIdents(gbm.tumor_ink4a, new.cluster.ids)
+gbm.tumor_ink4a$Cell.Subtype.Grouped <- Idents(gbm.tumor_ink4a) 
+gbm.tumor_ink4a <- gbm.tumor_ink4a[, gbm.tumor_ink4a$Cell.Subtype.Grouped %in% c("AC", "MES", "NPC", "OPC")]
+DimPlot(gbm.tumor_ink4a, group.by = "Cell.Subtype.Grouped", reduction = "umap")
+
+## Give new ID - p53
+DimPlot(gbm.tumor_p53, group.by = "Cell.Subtype", reduction = "umap")
+Idents(gbm.tumor_p53) <- gbm.tumor_p53$Cell.Subtype
+new.cluster.ids <- c("AC",	"NPC",	"OPC", "MES", "MES","NPC", "Undecided")
+names(new.cluster.ids) <- levels(gbm.tumor_p53)
+gbm.tumor_p53 <- RenameIdents(gbm.tumor_p53, new.cluster.ids)
+gbm.tumor_p53$Cell.Subtype.Grouped <- Idents(gbm.tumor_p53) 
+gbm.tumor_p53 <- gbm.tumor_p53[, gbm.tumor_p53$Cell.Subtype.Grouped %in% c("AC", "MES", "NPC", "OPC")]
+DimPlot(gbm.tumor_p53, group.by = "Cell.Subtype.Grouped", reduction = "umap")
+```
+
+
+# Figure 1C: Plot cellular subtype composition of each sample individually - PDG-Ink4a
+
+```{r}
+gbm.tumor <- gbm.tumor_ink4a
+gbm.tumor$MES.Score <- (gbm.tumor$MES1.Score + gbm.tumor$MES2.Score)/2
+gbm.tumor$NPC.Score <- (gbm.tumor$NPC1.Score + gbm.tumor$NPC2.Score)/2
+
+# D = max(SCopc,SCnpc) - max(SCac,SCmes)
+gbm.tumor$max_OPC_NPC = ifelse(
+  gbm.tumor$NPC.Score > gbm.tumor$OPC.Score, 
+  gbm.tumor$NPC.Score, 
+  gbm.tumor$OPC.Score)
+
+gbm.tumor$max_AC_MES = ifelse(
+  gbm.tumor$AC.Score > gbm.tumor$MES.Score, 
+  gbm.tumor$AC.Score, 
+  gbm.tumor$MES.Score)
+
+gbm.tumor$D = gbm.tumor$max_OPC_NPC - gbm.tumor$max_AC_MES
+
+gbm.tumor$x_axis <- ifelse(
+  gbm.tumor$D > 0,
+  log2(gbm.tumor$OPC.Score - gbm.tumor$NPC.Score+1),
+  log2(gbm.tumor$AC.Score - gbm.tumor$MES.Score+1))
+
+
+Idents(gbm.tumor) <- gbm.tumor$samplename
+
+scatter <- subset(gbm.tumor, downsample = 750)
+table(scatter@meta.data$samplename)
+
+## Colors based on non-grouped subtype
+# PDG-ink4a model
+ink4_prim1 <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_primary_CD45_b")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-Ink4a 1", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+ink4_prim2 <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_primary_CD45_c")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-Ink4a 2", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+ink4_prim3 <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_primary_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-Ink4a 3", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+ink4_rec1 <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_recurrent_CD45_b")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a 1", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+ink4_rec2 <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_recurrent_CD45_c")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a 2", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+ink4_rec3 <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_recurrent_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a 3", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+in4a_prim <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_primary_CD45_b", "ink4a_primary_CD45_c", "ink4a_primary_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-Ink4a", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+ink4a_rec <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_recurrent_CD45_b", "ink4a_recurrent_CD45_c", "ink4a_recurrent_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+# Figure 1C
+in4a_prim ## Save PDF 12x4
+```
+
+
+# Plot cellular subtype composition of each sample individually - PDG-shp53
+
+```{r}
+gbm.tumor <- gbm.tumor_p53
+
+gbm.tumor$MES.Score <- (gbm.tumor$MES1.Score + gbm.tumor$MES2.Score)/2
+gbm.tumor$NPC.Score <- (gbm.tumor$NPC1.Score + gbm.tumor$NPC2.Score)/2
+
+# D = max(SCopc,SCnpc) - max(SCac,SCmes)
+gbm.tumor$max_OPC_NPC = ifelse(
+  gbm.tumor$NPC.Score > gbm.tumor$OPC.Score, 
+  gbm.tumor$NPC.Score, 
+  gbm.tumor$OPC.Score)
+
+gbm.tumor$max_AC_MES = ifelse(
+  gbm.tumor$AC.Score > gbm.tumor$MES.Score, 
+  gbm.tumor$AC.Score, 
+  gbm.tumor$MES.Score)
+
+gbm.tumor$D = gbm.tumor$max_OPC_NPC - gbm.tumor$max_AC_MES
+
+gbm.tumor$x_axis <- ifelse(
+  gbm.tumor$D > 0,
+  log2(gbm.tumor$OPC.Score - gbm.tumor$NPC.Score+1),
+  log2(gbm.tumor$AC.Score - gbm.tumor$MES.Score+1))
+
+
+Idents(gbm.tumor) <- gbm.tumor$samplename
+
+scatter <- subset(gbm.tumor, downsample = 750)
+table(scatter@meta.data$samplename)
+
+## Colors based on non-grouped subtype
+# PDG-shp53 model
+p53_prim1 <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_primary_CD45_a")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-p53 1", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_prim2 <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_primary_CD45_b")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-p53 2", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_prim3 <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_primary_CD45_c")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-p53 3", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_prim4 <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_primary_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary PDG-p53 4", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_rec1 <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_recurrent_CD45_a")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a 1", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_rec2 <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_recurrent_CD45_b")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols =c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a 2", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_rec3 <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_recurrent_CD45_c")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a 3", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_prim <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_primary_CD45_a", "p53_primary_CD45_b", "p53_primary_CD45_c", "p53_primary_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols =c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Primary p53", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+
+p53_rec <- FeatureScatter(scatter[, scatter$samplename %in% c("p53_recurrent_CD45_a", "p53_recurrent_CD45_c", "p53_recurrent_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-p53", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
+```
+
+
+# Using IVY Gap scoring function to assess pseudolocation of tumor cells
+
+```{r}
+IVYGAPScoring <- function (object, ct.features,  pan.features, le.features, mvp.features ,set.ident = FALSE, ctrl_genes = 100,
+              ...)
+    {
+        name <- "Cell.Cycle"
+        features <- list(  PAN.Score = pan.features, LE.Score =  le.features, MVP.Score = mvp.features, CT.Score = ct.features)
+        object.cc <- AddModuleScore(object = object,
+                                    features = features,
+                                    name = name,
+                                    ctrl = min(c(vapply(X = features, FUN = length, FUN.VALUE = numeric(length = 1))), 
+                                               ctrl_genes), 
+                                    ...)
+        cc.columns <- grep(pattern = name, x = colnames(x = object.cc[[]]),
+                           value = TRUE)
+        cc.scores <- object.cc[[cc.columns]]
+        rm(object.cc)
+        CheckGC()
+        assignments <- apply(X = cc.scores, MARGIN = 1, FUN = function(scores,
+                                                                       first = "PAN", second = "LE", third = "MVP", fourth = "CT", null = "Undecided") {
+            if (all(scores < -0)) {
+                return(null)
+            }
+            else {
+                if (length(which(x = scores == max(scores))) > 1) {
+                    return("Undecided")
+                }
+                else {
+                    return(c(first, second, third, fourth)[which(x = scores == max(scores))])
+                }
+            }
+        })
+        cc.scores <- merge(x = cc.scores, y = data.frame(assignments),
+                           by = 0)
+        colnames(x = cc.scores) <- c("rownames", "PAN.Score", "LE.Score", "MVP.Score","CT.Score",
+                                     "Location")
+        rownames(x = cc.scores) <- cc.scores$rownames
+        cc.scores <- cc.scores[, c("PAN.Score", "LE.Score", "MVP.Score" ,"CT.Score","Location")]
+        object[[colnames(x = cc.scores)]] <- cc.scores
+        if (set.ident) {
+            object[["old.ident"]] <- Idents(object = object)
+            Idents(object = object) <- "Location"
+        }
+        return(object)
+    }
+```
+
+
+# Make tumor cell specific IVY Gap signatures
+
+```{r}
+library(nichenetr)
+library(dplyr)
+
+# Set working directory to folder "signatures" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures"
+setwd(work_dir)
+
+# Loading IVY_gap modules for pseudolocation function
+IVY_gap <- read_excel("IVY_gap_signatures.xlsx")
+IVY_gap$Gene <- IVY_gap$NAME %>% convert_human_to_mouse_symbols() 
+IVY_gap <- IVY_gap[complete.cases(IVY_gap), ]
+
+ct.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "CT")
+pan.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "CTpan")
+le.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "LE")
+mvp.all <-  subset(IVY_gap$Gene, subset = IVY_gap$Assigned == "CTmvp")
+
+
+ct.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = ct.all, group.by = "celltype")
+ct.expression <- ct.expression$RNA
+ct.expression <- as.data.frame(ct.expression)
+
+pan.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = pan.all, group.by = "celltype")
+pan.expression <- pan.expression$RNA
+pan.expression <- as.data.frame(pan.expression)
+
+le.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = le.all, group.by = "celltype")
+le.expression <- le.expression$RNA
+le.expression <- as.data.frame(le.expression)
+
+mvp.expression <- AverageExpression(gbm.combined_subset, assays = "RNA", features = mvp.all, group.by = "celltype")
+mvp.expression <- mvp.expression$RNA
+mvp.expression <- as.data.frame(mvp.expression)
+```
+
+
+# Using IVY Gap scoring function to assess pseudolocation of tumor cells
+
+```{r}
+library(ggplot2)
+# Make tumor specific features
+ct.features <- subset(rownames(ct.expression), subset = ct.expression$`Tumor cells` > 0.5)
+pan.features <-  subset(rownames(pan.expression), subset = pan.expression$`Tumor cells` > 0.5)
+le.features <-  subset(rownames(le.expression), subset = le.expression$`Tumor cells` > 0.5)
+mvp.features <-  subset(rownames(mvp.expression), subset = mvp.expression$`Tumor cells` > 0.5)
+
+DefaultAssay(gbm.tumor_ink4a) <- "RNA"
+gbm.tumor_ink4a <- IVYGAPScoring(gbm.tumor_ink4a, ct.features = ct.features, pan.features = pan.features, le.features = le.features, mvp.features = mvp.features)
+DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "Location", label = F, pt.size = 2, cols = c("orange", "violetred1", "darkolivegreen3","lightblue", "grey") ) + ggtitle("Pseudolocation")
+gbm.tumor_ink4a <- gbm.tumor_ink4a[, gbm.tumor_ink4a$Location %in% c( "MVP", "PAN", "CT", "LE")] 
+gbm.tumor_ink4a$spatialsubtype <- paste(gbm.tumor_ink4a$Location, gbm.tumor_ink4a$Cell.Subtype)
+Idents(gbm.tumor_ink4a) <- gbm.tumor_ink4a$Location
+x_abundance_ink4a <- t(table(gbm.tumor_ink4a$spatialsubtype, gbm.tumor_ink4a$samplename))
+write.csv(x_abundance_ink4a, file = "~/Desktop/x_gbm-sample-IVYGAP-ink4a.csv")
+
+DefaultAssay(gbm.tumor_p53) <- "RNA"
+gbm.tumor_p53 <- IVYGAPScoring(gbm.tumor_p53, ct.features = ct.features, pan.features = pan.features, le.features = le.features, mvp.features = mvp.features)
+DimPlot(gbm.tumor_p53, reduction = "umap", group.by = "Location", label = F, pt.size = 2, cols = c("orange", "violetred1", "darkolivegreen3","lightblue", "grey") ) + ggtitle("Pseudolocation")
+gbm.tumor_p53 <- gbm.tumor_p53[, gbm.tumor_p53$Location %in% c( "MVP", "PAN", "CT", "LE")] 
+gbm.tumor_p53$spatialsubtype <- paste(gbm.tumor_p53$Location, gbm.tumor_p53$Cell.Subtype)
+Idents(gbm.tumor_p53) <- gbm.tumor_p53$Location
+x_abundance_p53 <- t(table(gbm.tumor_p53$spatialsubtype, gbm.tumor_p53$samplename))
+write.csv(x_abundance_p53, file = "~/Desktop/x_gbm-sample-IVYGAP-p53.csv")
+```
+
+
+# Save polished tumor file
+
+```{r}
+# Set working directory to folder where integrated and filtered data will be saved: "scrna-seq"
+save(gbm.tumor_p53,file="~/Desktop/gbm-complete-tumor_p53.Rda")
+save(gbm.tumor_ink4a,file="~/Desktop/gbm-complete-tumor_ink4a.Rda")
+```
+
+
+# Figure 1D: Final quantification of pseudolocation across glioblastoma cellular subtype in murine dataset
+
+```{r}
+x_abundance <- t(table(gbm.tumor$spatialsubtype, gbm.tumor$samplename)) ## Master table
+write.csv(x_abundance, file = "~/x_Pseudolocation-GBMsubtype_murine.csv")
+```
