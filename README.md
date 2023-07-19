@@ -8,11 +8,12 @@ All sequencing and -omics data generated in this study is available on NCBI with
 
 Please contact d.kloosterman@nki.nl with any questions.
 
+
 # Downloading the data
 
 This repository contains the scripts needed to reproduce the figures from this manuscript that were generated with R. In addition, we added several other large datasets that were used to generate figures outside of R (therefore we only provide the dataset for these with no codes)
 
-We provide access and scripts to reproduce the figures of the manuscript of following datasets:
+We provide access to following datasets with scripts to reproduce the figures in the manuscript:
   - scRNA-seq on sorted CD45-/CD45+ cells (50:50) from primary and recurrent glioblastoma GEMMs with either a PDG-Ink4 or PDG-shp53 background
   - VISIUM 10x samples of primary and recurrent glioblastoma GEMMs with either a PDG-Ink4 or PDG-shp53 background
   - RNAseq on sorted lipid-laden and non-lipid-laden microglia (MG) and monocyte derived macrophages (MDMs) from primary PDG-Ink4a tumors
