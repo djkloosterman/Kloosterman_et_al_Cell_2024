@@ -1,26 +1,12 @@
----
-title: "Figure 1C-D"
-author: "Daan J. Kloosterman"
-date: "7/16/2021"
-output: html_document
-editor_options: 
-  chunk_output_type: console
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-
 ## Analysing glioblastoma tumor cellular subtype heterogeneity in GEMM with PDG-Ink4a and PDG-shp53 background
 
-This modules contains the code to generate Figure 1C and the data to make Figure 1D, which includes a function to  assign an unbiased glioblastoma cellular subtype identity and its pseudolocation to each individual tumor cell. Here, we assign tumor cell classifications later used in downstream analyses in the manuscript.
+This modules contains the code to generate Figure 1C and the data to make Figure 1D, which includes a function to assign an unbiased glioblastoma cellular subtype identity and its pseudolocation to each individual tumor cell. Here, we assign tumor cell classifications which is later used in downstream analyses in the manuscript.
 
 # Loading packages/libraries required for the code
 
 ```{r}
 library(Seurat)
-library(nichenetr)
+library(nichenetr) 
 library(ggplot2)
 ```
 
@@ -28,12 +14,11 @@ library(ggplot2)
 # Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
 
 ```{r}
-# Set working directory to folder "pre-processed human scrna-seq" 
+# Set working directory to folder "scrna-seq" 
 work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
 load("gbm-complete-tumor.Rda")
 load("gbm-complete-subset.Rda")
-
 ```
 
 
@@ -41,18 +26,15 @@ load("gbm-complete-subset.Rda")
 
 ```{r}
 ## Plotting the tumor cell dataset
-# gbm.tumor <- SCTransform(gbm.tumor)
-
 DimPlot(gbm.tumor, reduction = "umap", group.by = "seurat_clusters")
 
-
+# Split tumor dataset per genetic background for comparisons between primary and recurrent state
 gbm.tumor_ink4a <- gbm.tumor[, gbm.tumor$samplename %in% c("ink4a_primary_CD45_b", "ink4a_primary_CD45_c", "ink4a_primary_CD45_d", "ink4a_recurrent_CD45_b", "ink4a_recurrent_CD45_c", "ink4a_recurrent_CD45_d")]
 
 # Remove doublets with other cell types (AP2ry12 = MG, Aif1 = MDMs, Cd3e = T cells and Pecam1 = Endothelial cell specific)
 DefaultAssay(gbm.tumor_ink4a) <- "RNA"
 fdscores <- AddModuleScore(gbm.tumor_ink4a, features=list(c("P2ry12","Aif1", "Cd3e", "Pecam1", "Des", "Gfap", "Ccr7", "Clec4e")), name="Gene",nbin=100)
 
-                           
 ##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
 groups <- c("Gene1")
 
@@ -91,11 +73,9 @@ for (i in groups){
 ## Doublets are removed
 Idents(gbm.tumor_ink4a) <- gbm.tumor_ink4a@meta.data$assignedtoGene1
 new.cluster.ids <- c( "Doublets", "Tumor cells")
-
 names(new.cluster.ids) <- levels(gbm.tumor_ink4a)
 gbm.tumor_ink4a <- RenameIdents(gbm.tumor_ink4a, new.cluster.ids)
 gbm.tumor_ink4a$celltype <- Idents(gbm.tumor_ink4a)
-
 DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "celltype")
 
 ## Clean up the data by removing doublets cells 
@@ -106,10 +86,9 @@ gbm.tumor_ink4a <- RunUMAP(gbm.tumor_ink4a, reduction = "pca", dims = 1:30)
 gbm.tumor_ink4a <- FindNeighbors(gbm.tumor_ink4a, reduction = "pca", dims = 1:30)
 gbm.tumor_ink4a <- FindClusters(gbm.tumor_ink4a, resolution = 0.3, algorithm = 1)
 
-## Plotting the tumor cell dataset and removing outlier cluster
+## Plotting the tumor cell dataset and removing large outlier cluster (4)
 DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "seurat_clusters")
 gbm.tumor_ink4a <- gbm.tumor_ink4a[, gbm.tumor_ink4a$seurat_clusters %in% c("0", "1", "2", "3", "5")]
-
 DefaultAssay(gbm.tumor_ink4a) <- "integrated"
 gbm.tumor_ink4a <- RunUMAP(gbm.tumor_ink4a, reduction = "pca", dims = 1:30)
 
@@ -122,10 +101,9 @@ DimPlot(gbm.tumor_ink4a, reduction = "umap", group.by = "stage_model")
 ```{r}
 ## Plotting the tumor cell dataset
 # gbm.tumor <- SCTransform(gbm.tumor)
-
 DimPlot(gbm.tumor, reduction = "umap", group.by = "seurat_clusters")
 
-
+# Split tumor dataset per genetic background for comparisons between primary and recurrent state
 gbm.tumor_p53 <- gbm.tumor[, gbm.tumor$samplename %in% c( "p53_primary_CD45_a", "p53_primary_CD45_b", "p53_primary_CD45_c", "p53_primary_CD45_d", "p53_recurrent_CD45_a", "p53_recurrent_CD45_b", "p53_recurrent_CD45_c")]
 
 
@@ -187,12 +165,7 @@ gbm.tumor_p53 <- RunUMAP(gbm.tumor_p53, reduction = "pca", dims = 1:30)
 gbm.tumor_p53 <- FindNeighbors(gbm.tumor_p53, reduction = "pca", dims = 1:30)
 gbm.tumor_p53 <- FindClusters(gbm.tumor_p53, resolution = 0.3, algorithm = 1)
 
-DefaultAssay(gbm.tumor_p53) <- "RNA"
-
-## Plotting the tumor cell dataset and removing outlier cluster
 DimPlot(gbm.tumor_p53, reduction = "umap", group.by = "seurat_clusters")
-
-DefaultAssay(gbm.tumor_p53) <- "integrated"
 DimPlot(gbm.tumor_p53, reduction = "umap", group.by = "stage_model")
 ```
 
@@ -303,7 +276,7 @@ table(scatter@meta.data$samplename)
 ```
 
 
-# Cellular state plot
+# Make representative cellular state plot per genetic background and stage
 
 ```{r}
 ## Give new ID - ink4a
@@ -377,12 +350,12 @@ in4a_prim <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_primary_C
 
 ink4a_rec <- FeatureScatter(scatter[, scatter$samplename %in% c("ink4a_recurrent_CD45_b", "ink4a_recurrent_CD45_c", "ink4a_recurrent_CD45_d")], feature1 = "x_axis", feature2 = "D", group.by = "Cell.Subtype", pt.size = 2, cols = c( "darkolivegreen3", "pink", "tomato3","darkgoldenrod1", "darkgoldenrod3", "royalblue3" )) + ggtitle("Recurrent PDG-Ink4a", "Glioblastoma cellular subtype") + xlim(-0.5, 1) + ylim (-0.5, 0.7)
 
-# Figure 1C
+# Figure 1C - Representative plot of glioblastoma cellular subtype heterogeneity within GEMM with PDG-Ink4a background 
 in4a_prim ## Save PDF 12x4
 ```
 
 
-# Plot cellular subtype composition of each sample individually - PDG-shp53
+# Plot cellular subtype composition of each sample individually - PDG-shp53 (not included in paper)
 
 ```{r}
 gbm.tumor <- gbm.tumor_p53
@@ -558,14 +531,14 @@ write.csv(x_abundance_p53, file = "~/Desktop/x_gbm-sample-IVYGAP-p53.csv")
 
 ```{r}
 # Set working directory to folder where integrated and filtered data will be saved: "scrna-seq"
-save(gbm.tumor_p53,file="~/Desktop/gbm-complete-tumor_p53.Rda")
-save(gbm.tumor_ink4a,file="~/Desktop/gbm-complete-tumor_ink4a.Rda")
+save(gbm.tumor_p53,file="~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq/gbm-complete-tumor_p53.Rda")
+save(gbm.tumor_ink4a,file="~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq//gbm-complete-tumor_ink4a.Rda")
 ```
 
 
-# Figure 1D: Final quantification of pseudolocation across glioblastoma cellular subtype in murine dataset
+# Figure 1D: Final quantification of pseudolocation across glioblastoma cellular subtype in murine dataset (data summarized as piechart Graphpad)
 
 ```{r}
 x_abundance <- t(table(gbm.tumor$spatialsubtype, gbm.tumor$samplename)) ## Master table
-write.csv(x_abundance, file = "~/x_Pseudolocation-GBMsubtype_murine.csv")
+write.csv(x_abundance, file = "~/Desktop/x_Pseudolocation-GBMsubtype_murine.csv")
 ```
