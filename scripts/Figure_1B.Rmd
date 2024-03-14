@@ -1,15 +1,3 @@
----
-title: "scRNA-seq pre-processing"
-author: "Daan J. Kloosterman"
-date: "21/02/2021"
-output: html_document
-editor_options: 
-  chunk_output_type: console
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 ## Pre-processing and identifying cell types in the murine glioblastoma whole tumor scRNA-seq data
 
 This module contains the code used to integrate and filter the pre-processed single cell expression data for further downstream processing. The raw murine single cell expression matrices can be downloaded from (...).
