@@ -4,7 +4,7 @@ This module contains the code used to integrate and filter the pre-processed sin
 
 # Loading packages/libraries required for the data pre-processing
 
-To reproduce the data from Kloosterman et al., 2024, be sure to have Seurat version 4.1.4 installed. Later versions may alter the outcome of analyses compared to the ones shown in the publication.
+To reproduce the data from Kloosterman et al., 2024, be sure to have Seurat version 4.1.4 and SeuratObject version 4.4.0 installed. Later versions may alter the outcome of analyses compared to the ones shown in the publication.
 
 ```{r}
 remotes::install_version("SeuratObject", "4.1.4", repos = c("https://satijalab.r-universe.dev", getOption("repos")))
