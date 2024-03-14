@@ -17,8 +17,13 @@ This module contains the code used to integrate and filter the pre-processed sin
 
 # Loading packages/libraries required for the data pre-processing
 
+To reproduce the data from Kloosterman et al., 2024, be sure to have R (v4.3.2), Seurat (v4.4.0) and SeuratObject (v4.1.4) installed. Later versions may alter the outcome of analyses compared to the ones shown in the publication.
+
 ```{r}
+remotes::install_version("SeuratObject", "4.1.4", repos = c("https://satijalab.r-universe.dev", getOption("repos")))
+remotes::install_version("Seurat", "4.4.0", repos = c("https://satijalab.r-universe.dev", getOption("repos")))
 library(Seurat)
+library(SeuratObject)
 ```
 
 
@@ -134,7 +139,7 @@ gbm.combined_subset$model <- plyr::mapvalues(
     to = c("p53", "p53", "p53", "p53", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "ink4a", "p53", "p53", "ink4a", "ink4a", "p53", "p53", "p53", "ink4a", "ink4a", "p53", "p53")
 ) 
 
-## Adding annotation on the samples that were excluded: sample S6018 as it had a extra-ordinary large tumor volume of 150mm2+, S6017 as it contained no tumor cells and 6190 since we decided not to include the recurrent PDG-p53 sample in this dataset.
+## Adding annotation on the samples that were excluded: sample S6018 as it had a extra-ordinary large tumor volume of 150mm2+ and S6017 as it contained no tumor cells
 gbm.combined_subset$included <- plyr::mapvalues(
     x = gbm.combined$orig.ident,  
     from = c("A", "B", "C", "D", "X5765_1_BMDM_P", "X5765_2_MG_P", "X5879_1_BMDM_RC", "X5879_2_MG_RC", "X5879_3_MG_NTB", "S6017", "S6018", "S6035", "6160", "6060", "6190", "6198_1", "6198_2", "6407", "6410_S1", "6410_S2",  "6921", "6986", "7103_S1", "7103_S2"), 
