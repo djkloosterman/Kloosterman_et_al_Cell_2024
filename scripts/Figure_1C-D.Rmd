@@ -1,4 +1,17 @@
-## Analysing glioblastoma tumor cellular subtype heterogeneity in GEMM with PDG-Ink4a and PDG-shp53 background
+---
+title: "Kloosterman and Erbani et al., Cell 2024: Figure 1C-D"
+author: "Daan J. Kloosterman"
+date: "15/03/24"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Figure 1C-D - Analysing glioblastoma tumor cellular subtype heterogeneity in GEMM with PDG-Ink4a and PDG-shp53 background
 
 This modules contains the code to generate Figure 1C and the data to make Figure 1D, which includes a function to assign an unbiased glioblastoma cellular subtype identity and its pseudolocation to each individual tumor cell. Here, we assign tumor cell classifications which is later used in downstream analyses in the manuscript.
 
