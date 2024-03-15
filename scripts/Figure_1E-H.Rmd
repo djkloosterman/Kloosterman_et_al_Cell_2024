@@ -405,6 +405,7 @@ gbm.myeloid_p53_mdm  <- gbm.myeloid_p53[, gbm.myeloid_p53$clusterf %in%
                                             "MDM3-GPNMB",
                                             "MDM4-MKI67")]
 
+## MDM - ink4a
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_ink4a_mdm)
 gbm.myeloid_sce
 gbm.myeloid.meta <- gbm.myeloid_sce@metadata
