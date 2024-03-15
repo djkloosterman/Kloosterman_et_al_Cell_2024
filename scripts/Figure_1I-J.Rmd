@@ -1,7 +1,7 @@
 ---
-title: "Figure 1I-J"
-author: "Daan Kloosterman"
-date: "30/07/2020"
+title: "Kloosterman and Erbani et al., Cell 2024: Figure 1I-J"
+author: "Daan J. Kloosterman"
+date: "15/03/24"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -11,7 +11,8 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Assessing the correlation between lipid-laden macrophages and the mesenchymal subtype enrichment in murine and human datasets
+
+## Figure 1I-J - Assessing the correlation between lipid-laden macrophages and the mesenchymal subtype enrichment in murine and human datasets
 
 To further validate lipid-laden macrophages are enriched in mesenchymal glioblastoma dominant tumors, we will focus our analyses on these specific cellular subsets. Additionally, we probe an open source human glioblastoma scRNA-seq dataset to validate that this finding can be translated to patients.
 
@@ -22,17 +23,18 @@ library(Seurat)
 library(ggplot2)
 library(readxl)
 library(nichenetr)
+library(dplyr)
 ```
 
 
-# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+# Setting working directory and loading all the pre-processed data files 
 
 ```{r}
-# Set working directory to folder "pre-processed human scrna-seq" 
+# Set working directory to folder "scrna-seq" 
 work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
 
-load("gbm-complete-tumor_polished.Rda")
+load("gbm-tumor-polished.Rda")
 load("gbm-complete-myeloid_polished.Rda")
 ```
 
@@ -40,6 +42,8 @@ load("gbm-complete-myeloid_polished.Rda")
 # Figure 1I: Heatmap GPNMB-high signature
 
 ```{r}
+DefaultAssay(gbm.myeloid) <- "RNA"
+
 Idents(gbm.myeloid) <- gbm.myeloid$clusterf
 VlnPlot(gbm.myeloid, features = c("Gpnmb"))
 new.cluster.ids <- c("GpnmbLow",	"GpnmbLow" , "GpnmbHigh",	"GpnmbLow",	"GpnmbLow",	"GpnmbLow", 	"GpnmbHigh",	 "GpnmbLow" )
@@ -49,7 +53,8 @@ gbm.myeloid$Gpnmb <- Idents(gbm.myeloid)
 
 
 DimPlot(gbm.myeloid, reduction = "umap",  label = F, repel = T)
-VlnPlot(gbm.myeloid, features = c("Gpnmb"), group.by = "clusterf", pt.size = 0)
+VlnPlot(gbm.myeloid, features = c("rna_Gpnmb"), group.by = "clusterf", pt.size = 0)
+
 # Finding classifiers for each subpopulation
 Gpnmbmarkers <- FindAllMarkers(gbm.myeloid, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 Gpnmbmarkers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
@@ -58,12 +63,17 @@ Gpnmbmarkers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
 Genes_high <- filter(Gpnmbmarkers, cluster == "GpnmbHigh")
 Genes_low <- filter(Gpnmbmarkers, cluster == "GpnmbLow")
 
-Gene1 <- Genes_high$gene[1:25] ## First LLM 
-Gene2 <- Genes_low$gene[1:25] ## Now non LLM 
+Gene1 <- Genes_high$gene[1:25] ## Top 25 genes LLMs
+Gene2 <- Genes_low$gene[1:25] ## Top 25 genes non-LLMs
 Gene_combined <- c(Gene2, Gene1)
 gbm.myeloid <- ScaleData(gbm.myeloid)
 Idents(gbm.myeloid) <- gbm.myeloid$Gpnmb
-DoHeatmap(object = gbm.myeloid, features = Gene1)  + scale_fill_gradientn(colors = c("cornflowerblue", "white","brown1"))
+
+# Figure 1I - Heatmap GPNMB-high signature
+heatmap <- DoHeatmap(object = gbm.myeloid, features = Gene1)  + scale_fill_gradientn(colors = c("cornflowerblue", "white","brown1"))
+heatmap
+heatmapdata <- heatmap[[1]]$data
+write.csv(heatmapdata, file = "~/Desktop/heatmapdata_LLMsig.csv")
 ```
 
 
@@ -146,11 +156,11 @@ write.csv(x_abundance, file = "~/Desktop/x_abundance_LipidLaden-mouse.csv")
 ```
 
 
-# Loading patient data
+# Loading and processing patient data from Courturier et al., 2022 (Neuro-oncology)
 
 ```{r}
 # Set working directory to folder "pre-processed human scrna-seq" 
-work_dir <- "~/surfdrive/Code Availability/Kloosterman et al. 2024 - data availibility/GEO Data - processed/pre-processed human scrna-seq"
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/pre-processed human scrna-seq"
 setwd(work_dir)
 
 # HAM737
@@ -433,7 +443,7 @@ fdscores <- AddModuleScore(filtereddata, features=list(c(Gene)), name="Gene",nbi
 ##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
 groups <- c("Gene1")
 
-VlnPlot(fdscores, features=i, group.by="seurat_clusters", pt.size = 0)
+VlnPlot(fdscores, features=Gene, group.by="seurat_clusters", pt.size = 0)
 
 gbm.human <- fdscores[, fdscores$seurat_clusters %in% c("1")] # Cluster with highest score
 averageLLM <- median(gbm.human@meta.data$Gene1) 
@@ -457,13 +467,6 @@ for (i in groups){
   vl <- densMode(fdscores@meta.data[,i])[1]
   vl2 <- densMode(fdscores@meta.data[,i])[2]
   plot(density(fdscores@meta.data[,i]), main=paste("densityplot, GenesetScore, The higher the cell's score, the higher the Geneset's average expression ",i, sep=""))
-  if(density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] > 6 || density(fdscores@meta.data[,i])$y[which(density(fdscores@meta.data[,i])$x==vl$minx[1])] <0.01){
-    abline(v=vl$minx[2])
-    threshold=vl$minx[2]
-  }else{
-    abline(v=vl$minx[1], col="red")
-    threshold=vl$minx[1]
-  }
   #plot(hist(fdscores@meta.data[,i], plot=F, freq=FALSE))
   #abline(h=500)
   #abline(v=vl2$maxy, col="red")
@@ -564,3 +567,5 @@ DimPlot(filtereddata, reduction = "umap", group.by = "Cell.Subtype", pt.size = 2
 x_abundance <- t(table(filtereddata$Cell.Subtype, filtereddata$signature))
 write.csv(x_abundance, file = "~/Desktop/x_abundance_Cell.Subtype-patient.csv")
 ```
+
+
