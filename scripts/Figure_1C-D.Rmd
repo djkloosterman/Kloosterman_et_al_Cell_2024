@@ -25,7 +25,7 @@ library(ggplot2)
 ```
 
 
-# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+# Setting working directory and loading all the pre-processed data files
 
 ```{r}
 # Set working directory to folder "scrna-seq" 
