@@ -1,7 +1,7 @@
 ---
-title: "Figure 1E-H"
+title: "Kloosterman and Erbani et al., Cell 2024: Figure 1E-H"
 author: "Daan J. Kloosterman"
-date: "7/19/2021"
+date: "15/03/24"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -31,7 +31,7 @@ library(PerformanceAnalytics)
 # Loading myeloid dataset
 
 ```{r}
-# Set working directory to folder "pre-processed human scrna-seq" 
+# Set working directory to folder "scrna-seq" 
 work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
 
@@ -107,7 +107,7 @@ gbm.myeloid <- FindClusters(gbm.myeloid, resolution = 0.36, algorithm = 2)
 
 DimPlot(gbm.myeloid, reduction = "umap", group.by = "seurat_clusters")
 
-# Remove small unknown cluster and re-cluster
+# Remove small outlier cluster (10) and re-cluster
 gbm.myeloid <- gbm.myeloid[, gbm.myeloid$seurat_clusters %in% c("0", "1", "2", "3", "4", "5", "6", "7", "8","9")]
 gbm.myeloid <- RunUMAP(gbm.myeloid, reduction = "pca", dims = 1:30)
 gbm.myeloid <- FindNeighbors(gbm.myeloid, reduction = "pca", dims = 1:30)
@@ -254,7 +254,7 @@ write.csv2(fdscomplete, "~/Desktop/x_GOscores_macrophageclusters.csv")
 ```
 
 
-# Using IVY Gap scoring function to assess pseudolocation of tumor-associated macrophages in glioblastoma
+# A IVY Gap scoring function to assess pseudolocation of tumor-associated macrophages in glioblastoma
 
 ```{r}
 IVYGAPScoring <- function (object, ct.features,  pan.features, le.features, mvp.features ,set.ident = FALSE, ctrl_genes = 100,
@@ -365,8 +365,6 @@ gbm.myeloid$spatialcluster <- paste(gbm.myeloid$clusterf, gbm.myeloid$Location)
 gbm.myeloid <- gbm.myeloid[, gbm.myeloid$Location %in% c( "MVP", "PAN", "CT", "LE")] 
 
 x_abundance <- t(table( gbm.myeloid$samplename, gbm.myeloid$spatialcluster))
-prop.table(table(Idents(gbm.myeloid), gbm.myeloid$samplename), margin = 2)
-prop.table(table(gbm.myeloid$clusterf, gbm.myeloid$samplename), margin = 2)
 write.csv(x_abundance, file = "~/Desktop/x_gbm-myeloid-IVYGAP.csv")
 ```
 
@@ -386,26 +384,26 @@ DefaultAssay(gbm.myeloid) <- "integrated"
 gbm.myeloid_tumor  <- gbm.myeloid[, gbm.myeloid$stage %in% c("primary", "recurrent")]
 gbm.myeloid_ink4a  <- gbm.myeloid_tumor[, gbm.myeloid_tumor$model %in% c("ink4a")]
 gbm.myeloid_ink4a_mg  <- gbm.myeloid_ink4a[, gbm.myeloid_ink4a$clusterf %in%  
-              c("MG1-P2RY12",	
-                "MG2-TNF",
-                "MG3-GPNMB",
-                "MG4-MKI67")]
+                                             c("MG1-P2RY12",	
+                                               "MG2-TNF",
+                                               "MG3-GPNMB",
+                                               "MG4-MKI67")]
 gbm.myeloid_ink4a_mdm  <- gbm.myeloid_ink4a[, gbm.myeloid_ink4a$clusterf %in%  
-              c("MDM1-CCR2",
-                "MDM2-H2-EB1",
-                "MDM3-GPNMB",
-                "MDM4-MKI67")]
+                                              c("MDM1-CCR2",
+                                                "MDM2-H2-EB1",
+                                                "MDM3-GPNMB",
+                                                "MDM4-MKI67")]
 gbm.myeloid_p53  <- gbm.myeloid_tumor[, gbm.myeloid_tumor$model %in% c("p53")]
 gbm.myeloid_p53_mg  <- gbm.myeloid_p53[, gbm.myeloid_p53$clusterf %in%  
-              c("MG1-P2RY12",	
-                "MG2-TNF",
-                "MG3-GPNMB",
-                "MG4-MKI67")]
+                                         c("MG1-P2RY12",	
+                                           "MG2-TNF",
+                                           "MG3-GPNMB",
+                                           "MG4-MKI67")]
 gbm.myeloid_p53_mdm  <- gbm.myeloid_p53[, gbm.myeloid_p53$clusterf %in%  
-              c("MDM1-CCR2",
-                "MDM2-H2-EB1",
-                "MDM3-GPNMB",
-                "MDM4-MKI67")]
+                                          c("MDM1-CCR2",
+                                            "MDM2-H2-EB1",
+                                            "MDM3-GPNMB",
+                                            "MDM4-MKI67")]
 
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_ink4a_mdm)
 gbm.myeloid_sce
@@ -446,15 +444,18 @@ gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
 head(gbm_results)
 gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
 
+gbm_results <- gbm_results[gbm_results$clusterf %in% c("MDM1-CCR2",
+                                                                   "MDM2-H2-EB1",
+                                                                   "MDM3-GPNMB",
+                                                                   "MDM4-MKI67"),]
 gbm_results$clusterf <- as.factor(gbm_results$clusterf)
-
 gbm_results_selected <- gbm_results %>% 
-             filter(SpatialFDR>=0.1)
-mdm_inka <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MDM1-CCR2",
-                "MDM2-H2-EB1",
-                "MDM3-GPNMB",
-                "MDM4-MKI67"),], group.by = "clusterf", alpha = 1) + 
-    scale_x_discrete(limits=rev)
+  filter(SpatialFDR>=0.2)
+
+
+mdm_inka <- plotDAbeeswarm(gbm_results, "clusterf", alpha = 0.35) + ylim(-6, 7) + scale_colour_distiller(
+    na.value = "grey80",palette = "RdBu"
+  )
 
 ## MG - ink4a
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_ink4a_mg)
@@ -495,16 +496,18 @@ ggplot(gbm_results, aes(logFC, -log10(SpatialFDR))) +
 gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
 head(gbm_results)
 gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
-
+gbm_results <- gbm_results[gbm_results$clusterf %in% c("MG1-P2RY12",	
+                                                                  "MG2-TNF",
+                                                                  "MG3-GPNMB",
+                                                                  "MG4-MKI67"),]
 gbm_results$clusterf <- as.factor(gbm_results$clusterf)
 
 gbm_results_selected <- gbm_results %>% 
-             filter(SpatialFDR>=0.1)
-mg_inka <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MG1-P2RY12",	
-                "MG2-TNF",
-                "MG3-GPNMB",
-                "MG4-MKI67"),], group.by = "clusterf", alpha = 1) + 
-    scale_x_discrete(limits=rev)
+  filter(SpatialFDR>=0.1)
+
+mg_inka <- plotDAbeeswarm(gbm_results, group.by = "clusterf", alpha = 0.35) +  ylim(-6, 7) + scale_colour_distiller(
+    na.value = "grey80",palette = "RdBu"
+  )
 
 ## MG - p53
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_p53_mg)
@@ -545,16 +548,18 @@ ggplot(gbm_results, aes(logFC, -log10(SpatialFDR))) +
 gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
 head(gbm_results)
 gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
+gbm_results <- gbm_results[gbm_results$clusterf %in% c("MG1-P2RY12",	
+                                                                 "MG2-TNF",
+                                                                 "MG3-GPNMB",
+                                                                 "MG4-MKI67"),]
 
 gbm_results$clusterf <- as.factor(gbm_results$clusterf)
 
 gbm_results_selected <- gbm_results %>% 
-             filter(SpatialFDR>=0.1)
-mg_p53 <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MG1-P2RY12",	
-                "MG2-TNF",
-                "MG3-GPNMB",
-                "MG4-MKI67"),], group.by = "clusterf", alpha = 1) + 
-    scale_x_discrete(limits=rev)
+  filter(SpatialFDR>=0.1)
+mg_p53 <- plotDAbeeswarm(gbm_results, group.by = "clusterf", alpha = 0.35) + ylim(-6, 7) + scale_colour_distiller(
+    na.value = "grey80",palette = "RdBu"
+  )
 
 ## MG - p53
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_p53_mdm)
@@ -595,38 +600,44 @@ ggplot(gbm_results, aes(logFC, -log10(SpatialFDR))) +
 gbm_results <- annotateNhoods(milo.obj, gbm_results, coldata_col = "clusterf")
 head(gbm_results)
 gbm_results$clusterf <- ifelse(gbm_results$clusterf_fraction < 0.7, "Mixed", gbm_results$clusterf)
-
+gbm_results <- gbm_results[gbm_results$clusterf %in% c("MDM1-CCR2",
+                                                                  "MDM2-H2-EB1",
+                                                                  "MDM3-GPNMB",
+                                                                  "MDM4-MKI67"),]
 gbm_results$clusterf <- as.factor(gbm_results$clusterf)
 
 gbm_results_selected <- gbm_results %>% 
-             filter(SpatialFDR>=0.1)
-mdm_p53 <- plotDAbeeswarm(gbm_results[gbm_results$clusterf %in% c("MDM1-CCR2",
-                "MDM2-H2-EB1",
-                "MDM3-GPNMB",
-                "MDM4-MKI67"),], group.by = "clusterf", alpha = 1) + 
-    scale_x_discrete(limits=rev)
+  filter(SpatialFDR>=0.1)
+
+mdm_p53 <- plotDAbeeswarm(gbm_results, group.by = "clusterf", alpha = 0.35) + 
+  ylim(-6, 7) + scale_colour_distiller(
+    na.value = "grey80",palette = "RdBu"
+  )
 
 mg_inka <- mg_inka + xlab(NULL) + ylab(NULL) + ggtitle("PDG-Ink4a Rec/Prim") + theme(
-plot.title = element_text(color="black", size=20, face="plain",  hjust = 0.5))
+  plot.title = element_text(color="black", size=20, face="plain",  hjust = 0.5))
 
 mg_p53 <- mg_p53 + theme(axis.text.y=element_blank()) + xlab(NULL)  + ylab(NULL)+  ggtitle("PDG-p53 Rec/Prim") + theme(
-plot.title = element_text(color="black", size=20, face="plain", hjust = 0.5))
+  plot.title = element_text(color="black", size=20, face="plain", hjust = 0.5))
 
 mdm_inka <- mdm_inka + xlab(NULL) 
 
 mdm_p53 <- mdm_p53 + theme(axis.text.y=element_blank()) + xlab(NULL)
 
 # Figure 1H
-mg_inka +  mg_p53 + mdm_inka + mdm_p53
+mg_inka +  mg_p53 + mdm_inka + mdm_p53 # Save as pdf; height = 7, width = 8
 ```
 
 
 # Figure 1H (2): Corrrelation plot with glioblastoma cellular subtype and macrophage subsets
 
 ```{r}
+# Load excel sheet containing data acquired in previous figures: fraction of subtype as a percentage of total tumor cells (MES = MES1 + MES2, NPC = NPC1 + NPC2), fraction of macrophage subsets as a percentage of total macrophages
 corr <- read_excel("correlationplot_macro_subtype.xlsx")
 row.names(corr) <- corr$Sample
 corr$Sample <- NULL
+
+# Correlation plot further refined in Illustrator 
 corrplot(cor(corr),    # Correlation plot method
          type = "full",    # Correlation plot style (also "upper" and "lower")
          diag = TRUE,      # If TRUE (default), adds the diagonal
@@ -635,6 +646,7 @@ corrplot(cor(corr),    # Correlation plot method
          title = "",       # Main title
          col = NULL)       # Color palette
 
+# Statistics derived from this plot were added in the correlation plot of Figure 1H(2)
 chart.Correlation(corr, histogram=TRUE, pch=20)
 ```
 
@@ -645,5 +657,5 @@ chart.Correlation(corr, histogram=TRUE, pch=20)
 DefaultAssay(gbm.myeloid) <- "RNA"
 
 # Set working directory to folder where integrated and filtered data will be saved: "scrna-seq"
-save(gbm.myeloid,file="~/Desktop/gbm-complete-myeloid_polished.Rda")
+save(gbm.myeloid,file="~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq/gbm-complete-myeloid_polished.Rda")
 ```
