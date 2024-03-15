@@ -25,6 +25,12 @@ library(nichenetr)
 library(ggplot2)
 library(corrplot)
 library(PerformanceAnalytics)
+library(miloR)
+library(SingleCellExperiment)
+library(scater)
+library(scran)
+library(dplyr)
+library(patchwork)
 ```
 
 
@@ -372,14 +378,6 @@ write.csv(x_abundance, file = "~/Desktop/x_gbm-myeloid-IVYGAP.csv")
 #  Figure 1H (1): Comparing macrophage subset abundance between primary and recurrent tumors (PDG-Ink4 and PDG-shp53 seperatly) using Milo package
 
 ```{r}
-library(miloR)
-library(SingleCellExperiment)
-library(scater)
-library(scran)
-library(dplyr)
-library(patchwork)
-library(ggplot2)
-
 DefaultAssay(gbm.myeloid) <- "integrated"
 gbm.myeloid_tumor  <- gbm.myeloid[, gbm.myeloid$stage %in% c("primary", "recurrent")]
 gbm.myeloid_ink4a  <- gbm.myeloid_tumor[, gbm.myeloid_tumor$model %in% c("ink4a")]
@@ -458,6 +456,8 @@ mdm_inka <- plotDAbeeswarm(gbm_results, "clusterf", alpha = 0.35) + ylim(-6, 7) 
     na.value = "grey80",palette = "RdBu"
   )
 
+write.csv(gbm_results, file = "~/Desktop/MiloR_mdm_inka.csv")
+
 ## MG - ink4a
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_ink4a_mg)
 gbm.myeloid_sce
@@ -509,6 +509,7 @@ gbm_results_selected <- gbm_results %>%
 mg_inka <- plotDAbeeswarm(gbm_results, group.by = "clusterf", alpha = 0.35) +  ylim(-6, 7) + scale_colour_distiller(
     na.value = "grey80",palette = "RdBu"
   )
+write.csv(gbm_results, file = "~/Desktop/MiloR_mg_inka.csv")
 
 ## MG - p53
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_p53_mg)
@@ -561,8 +562,9 @@ gbm_results_selected <- gbm_results %>%
 mg_p53 <- plotDAbeeswarm(gbm_results, group.by = "clusterf", alpha = 0.35) + ylim(-6, 7) + scale_colour_distiller(
     na.value = "grey80",palette = "RdBu"
   )
+write.csv(gbm_results, file = "~/Desktop/MiloR_mg_p53.csv")
 
-## MG - p53
+## MDM - p53
 gbm.myeloid_sce <- as.SingleCellExperiment(gbm.myeloid_p53_mdm)
 gbm.myeloid_sce
 gbm.myeloid.meta <- gbm.myeloid_sce@metadata
@@ -614,7 +616,9 @@ mdm_p53 <- plotDAbeeswarm(gbm_results, group.by = "clusterf", alpha = 0.35) +
   ylim(-6, 7) + scale_colour_distiller(
     na.value = "grey80",palette = "RdBu"
   )
+write.csv(gbm_results, file = "~/Desktop/MiloR_mdm_p53.csv")
 
+# Preparing the final plot for figure 1H(1)
 mg_inka <- mg_inka + xlab(NULL) + ylab(NULL) + ggtitle("PDG-Ink4a Rec/Prim") + theme(
   plot.title = element_text(color="black", size=20, face="plain",  hjust = 0.5))
 
@@ -637,6 +641,8 @@ mg_inka +  mg_p53 + mdm_inka + mdm_p53 # Save as pdf; height = 7, width = 8
 corr <- read_excel("correlationplot_macro_subtype.xlsx")
 row.names(corr) <- corr$Sample
 corr$Sample <- NULL
+correlation <- cor(corr)
+write.csv(correlation, file = "~/Desktop/correlation_macro_vs_tumorsubtype.csv")
 
 # Correlation plot further refined in Illustrator 
 corrplot(cor(corr),    # Correlation plot method
