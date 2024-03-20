@@ -11,7 +11,7 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Validating the glioblastoma cellular subtype and pseudolocation classification function
+## Supplementary Figure 1A-G - Validating the glioblastoma cellular subtype and pseudolocation classification function
 
 # Loading packages/libraries required for the code
 
