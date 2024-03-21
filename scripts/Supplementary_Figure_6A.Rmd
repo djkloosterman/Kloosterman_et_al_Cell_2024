@@ -1,0 +1,40 @@
+---
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 6A"
+author: "Daan J. Kloosterman"
+date: "21/03/24"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Supplementary Figure 6A: Cd36 gene expression across major cell type populations in TME to show specificity of SSO targeting
+
+# Loading packages/libraries required for the code
+```{r}
+library(Seurat)
+library(nichenetr)
+library(ggplot2)
+```
+
+# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+
+```{r}
+# Set working directory to folder "pre-processed human scrna-seq" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
+setwd(work_dir)
+
+load("gbm-complete-subset.Rda")
+DefaultAssay(gbm.combined_subset) <- "RNA"
+```
+
+# Final figure
+
+```{r}
+# Supplementary Figure 6A 
+DotPlot(gbm.combined_subset, features = c("Cd36")) + scale_y_discrete(limits = rev(levels(Idents(gbm.combined_subset))))
+```
