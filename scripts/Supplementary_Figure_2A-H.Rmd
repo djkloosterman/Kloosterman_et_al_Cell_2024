@@ -1,7 +1,7 @@
 ---
-title: "Supplementary Figure 2A-E"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 2A-H"
 author: "Daan J. Kloosterman"
-date: "11/26/2021"
+date: "15/03/24"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -11,7 +11,7 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Understanding macrophage heterogeneity in the context of glioblastoma
+## Supplementary Figure 2A-H - Understanding macrophage heterogeneity in the context of glioblastoma
 
 A deeper analysis of the macrophage subsets present in glioblastoma. Here we focus on the distribution and function of GPNMB-high (read LLMs).
 
