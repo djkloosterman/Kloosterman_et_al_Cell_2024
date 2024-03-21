@@ -1,0 +1,32 @@
+---
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 9E"
+author: "Daan J. Kloosterman"
+date: "21/03/24"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Supplementary Figure 9E: Gene expression associated with cholesterol export between LLMs and non-LLMs
+
+# Loading packages/libraries required for the code
+```{r}
+library(Seurat)
+library(nichenetr)
+library(ggplot2)
+```
+
+# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+
+```{r}
+# Set working directory to folder "pre-processed human scrna-seq" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
+setwd(work_dir)
+
+load("gbm-complete-myeloid_polished.Rda")
+```
