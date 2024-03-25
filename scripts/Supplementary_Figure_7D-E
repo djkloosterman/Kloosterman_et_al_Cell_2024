@@ -232,7 +232,7 @@ write.csv2(cor(correlation_perwell[-c(631),]), "~/Desktop/Correlation_Figure2D.c
 ```
 
 
-# Correlation macrophage subsets (M01) between healthy and tumor tissue (not in manuscript)
+# Correlation macrophage subsets (M01) between healthy and tumor tissue (most not in manuscript, correlation between healthy and tumor with de- and remyelination pathway activity is implemented in supplementary figure 7-E)
 
 ```{r}
 gbm.merged_mac <- gbm.merged[, gbm.merged$Macrophage_score %in% c("Macrophage")]
