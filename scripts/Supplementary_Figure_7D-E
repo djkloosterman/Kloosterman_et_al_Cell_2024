@@ -1,0 +1,303 @@
+---
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 7D-E"
+author: "Daan J. Kloosterman"
+date: "19/03/24"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Supplementary Figure 7D-E - De- and remyelination signature in tumor microenvironment
+
+To see if there is de- and remyelination pathways active in the glioblastoma microenvironment, we used de- an remyelination signatures to identify if and where they are active.
+
+# Loading packages/libraries required for the data pre-processing
+
+```{r}
+library(Seurat)
+library(nichenetr)
+library(readxl)
+library(dplyr)
+library(readr)
+library(nichenetr)
+library(dplyr)
+library(corrplot)
+library(PerformanceAnalytics)
+library(RColorBrewer)
+```
+
+
+# Load data
+
+```{r}
+setwd("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/visium") 
+gbm.merged <- readRDS("visium_merged_complete.rds")
+```
+
+
+# Find tumor and healthy tissue markers to get a signature which will be used to quantify how "healthy" a tissue is (not used in final manuscript)
+
+```{r}
+# Finding classifiers for Tumor and Non tumor bearing (Ntb) tissue
+DefaultAssay(gbm.merged) <- "SCT"
+Idents(gbm.merged) <- gbm.merged$tissue
+gbm.merged <- PrepSCTFindMarkers(gbm.merged)
+gbm.merged_markers <- FindAllMarkers(gbm.merged, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+gbm.merged_markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+gbm.merged_markers_top30 <- gbm.merged_markers %>% group_by(cluster) %>% top_n(n = 30, wt = avg_log2FC)
+TumorFeatures <- gbm.merged_markers_top30[ gbm.merged_markers_top30$cluster %in% c("Tumor"), ]$gene
+HealthyFeatures <- gbm.merged_markers_top30[ gbm.merged_markers_top30$cluster %in% c("Ntb"), ]$gene
+
+# Apply signature on spots to get Tumor and Non tumor bearing (Ntb) score
+gbm.merged <- AddModuleScore(gbm.merged, features= list(c(TumorFeatures)), name="TumorScore")
+gbm.merged <- AddModuleScore(gbm.merged, features= list(c(HealthyFeatures)), name="NtbScore")
+```
+
+
+# Loading de- and remyelination gene signatures and applying them on VISIUM10x dataset (gene signatures from Samtani et al., 2023 (Frontiers in Cellular Neuroscience))
+
+```{r}
+# Apply signature on spots to get acute demyelination and remyelination score
+Samtani_et_al <- read_excel("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures/Signatures - Samtani et al., 2023 (Frontiers in Cellular Neuroscience).xlsx")
+
+DemyelinationFeatures = Reduce(intersect, list(Samtani_et_al$`Up acute demyelination vs remyelination`, Samtani_et_al$`Up demyelination versus naive`))
+RemyelinationFeatures = Reduce(intersect, list(Samtani_et_al$`Up remyelination vs acute demyelination`, Samtani_et_al$`Up remyelination versus naive`))
+
+# Add Remyelination Signature
+gbm.merged <- AddModuleScore(gbm.merged, features= list(c(RemyelinationFeatures)), name="RemyelinationScore")
+gbm.merged$RemyelinationScore1 <- as.numeric(gbm.merged$RemyelinationScore1)
+
+# Add Demyelination Signature
+gbm.merged <- AddModuleScore(gbm.merged, features= list(c(DemyelinationFeatures)), name="DemyelinationScore")
+gbm.merged$DemyelinationScore1 <- as.numeric(gbm.merged$DemyelinationScore1)
+
+# Supplementary Figure 7D
+a1 <- SpatialFeaturePlot(gbm.merged, features = c("RemyelinationScore1"), image.alpha = 1, images = c("Ink4a_Rec_S2", "Ink4a_Prim_S8_2"))
+a2 <- SpatialFeaturePlot(gbm.merged, features = c("DemyelinationScore1"), image.alpha = 1, images = c("Ink4a_Rec_S2", "Ink4a_Prim_S8_2"))
+a1 + a2
+
+# Focus on tumor only
+gbm.merged_tumor <- gbm.merged[, gbm.merged$tissue %in% c("Tumor")]
+
+my_levels <- c("S1",	
+                "S2",
+                "S3",
+                "S4",
+                "S5",
+                "S6",
+                "S7",
+                "S8",
+                "S1_2",
+                "S2_2",
+                "S3_2",
+                "S4_2",
+               "S8_2")
+
+# Final file
+fdscomplete <- c()
+gbm.merged_tumor$all <- c("all")
+GOlist <- list(DemyelinationFeatures, RemyelinationFeatures)
+for (i in 1:2){
+  DefaultAssay(gbm.merged_tumor) <- "SCT"
+  Gene <- unlist(as.vector(GOlist[[i]]))
+
+# Select the genes from the geneset that are in the Cluster.1 expression data
+Gene <- Gene[Gene %in% rownames(gbm.merged_tumor)]
+select <- AverageExpression(gbm.merged_tumor, assays = "SCT", features = c(Gene), group.by = "all")
+select <- unlist(as.vector(select))
+a <- which(select > 1)
+Gene <- Gene[a]
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(gbm.merged_tumor, features=Gene,  name="Gene",nbin=100)
+
+# Average of fdscores
+filtereddata1 <- fdscores[, fdscores$orig.ident %in% c("S1")] 
+filtereddata2 <- fdscores[, fdscores$orig.ident %in% c("S2")] 
+filtereddata3 <- fdscores[, fdscores$orig.ident %in% c("S3")] 
+filtereddata4 <- fdscores[, fdscores$orig.ident %in% c("S4")] 
+filtereddata5 <- fdscores[, fdscores$orig.ident %in% c("S5")] 
+filtereddata6 <- fdscores[, fdscores$orig.ident %in% c("S6")] 
+filtereddata7 <- fdscores[, fdscores$orig.ident %in% c("S7")] 
+filtereddata8 <- fdscores[, fdscores$orig.ident %in% c("S8")] 
+filtereddata9 <- fdscores[, fdscores$orig.ident %in% c("S1_2")] 
+filtereddata10 <- fdscores[, fdscores$orig.ident %in% c("S2_2")] 
+filtereddata11<- fdscores[, fdscores$orig.ident %in% c("S3_2")] 
+filtereddata12 <- fdscores[, fdscores$orig.ident %in% c("S4_2")] 
+filtereddata16 <- fdscores[, fdscores$orig.ident %in% c("S8_2")] 
+
+df1 <- mean(filtereddata1@meta.data$Gene1)*10000 
+df2 <- mean(filtereddata2@meta.data$Gene1)*10000  
+df3 <- mean(filtereddata3@meta.data$Gene1)*10000 
+df4 <- mean(filtereddata4@meta.data$Gene1) *10000
+df5 <- mean(filtereddata5@meta.data$Gene1) *10000
+df6 <- mean(filtereddata6@meta.data$Gene1) *10000
+df7 <- mean(filtereddata7@meta.data$Gene1) *10000
+df8 <- mean(filtereddata8@meta.data$Gene1) *10000
+df9 <- mean(filtereddata9@meta.data$Gene1) *10000
+df10 <- mean(filtereddata10@meta.data$Gene1) *10000
+df11 <- mean(filtereddata11@meta.data$Gene1) *10000
+df12 <- mean(filtereddata12@meta.data$Gene1) *10000
+df16 <- mean(filtereddata16@meta.data$Gene1) *10000
+
+library(data.table)
+fdscompared <- as.data.frame(cbind(df1, df2, df3, df4, df5,df6, df7, df8, df9, df10,df11, df12, df16))
+fdscompared <- t(fdscompared)
+row.names(fdscompared) <- my_levels
+
+fdscomplete <- cbind(fdscomplete, fdscompared)
+}
+colnames(fdscomplete) <- names(GOlist)
+
+## Save data as csv
+write.csv2(fdscomplete, "~/Desktop/GOscores_VISIUM10x_Myelination.csv")
+write.csv(gbm.merged_markers_top30, file = "~/Desktop/VISIUM_tumor_vs_healthy_Top30genes.csv")
+```
+
+
+# Supplementary Figure 7E: Data generated to create correlation plot between different spot assignments. Heatmap generated in this chuck was remodelled in illustrator for aesthetic purposes.
+
+```{r}
+gbm.merged_tumormac <- gbm.merged_tumor[, gbm.merged_tumor$Macrophage_score %in% c("Macrophage")]
+
+Idents(gbm.merged_tumormac) <- gbm.merged_tumormac$orig.ident
+gbm.merged_tumormac <- RenameIdents(object = gbm.merged_tumormac, "S1_2" = "S9",
+                                                "S2_2" = "S10",
+                           "S3_2" = "S11",
+                           "S4_2" = "S12",
+                           "S8_2" = "S16"
+                           )
+gbm.merged_tumormac$orig.ident <- Idents(gbm.merged_tumormac)
+correlation <- gbm.merged_tumormac@meta.data
+
+  
+  
+
+## Make LLM score
+DefaultAssay(gbm.merged_tumormac) <- "SCT"
+
+## GPNMBhigh gene signature
+Gene <- c("Gpnmb",  "Fabp5",  "Hmox1",  "Spp1" ,  "Arg1")
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+
+gbm.merged_tumormac <- NormalizeData(gbm.merged_tumormac) # Needs to be normalised 
+fdscores <- AddModuleScore(gbm.merged_tumormac, features= list(c(Gene)), name="Gene",nbin=100)
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot"))
+  ##classify the cells based on thresholds of 0.1
+  gbm.merged@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.merged@meta.data[which(fdscores@meta.data[,i]>0.1),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+  fdscores_gpnmbhigh <- fdscores
+}
+
+correlation_gpnmbhigh <- fdscores_gpnmbhigh@meta.data # acquired from Figure 1k
+                            
+correlation_perwell <- data.frame(correlation$RemyelinationScore, correlation$DemyelinationScore, correlation$MES1.Score, correlation$MES2.Score, correlation$AC.Score, correlation$NPC1.Score, correlation$NPC2.Score, correlation$OPC.Score,  correlation$PAN.Score, correlation$LE.Score, correlation$MVP.Score, correlation$CT.Score,  correlation$M01.Score, correlation$M02.Score, correlation$M03.Score,correlation$B01.Score, correlation$B02.Score, correlation$B03.Score, correlation_gpnmbhigh$Gene1)
+
+
+corrplot(cor(correlation_perwell[-c(631),]),  
+         tl.col = "black", # Labels color
+         bg = "white",     # Background color
+          col=brewer.pal(n=8, name="PRGn"))       # Color palette
+
+chart.Correlation(cor(correlation_perwell[-c(631),]), histogram=TRUE, pch=20)
+
+write.csv2(cor(correlation_perwell[-c(631),]), "~/Desktop/Correlation_Figure2D.csv")
+```
+
+
+# Correlation macrophage subsets (M01) between healthy and tumor tissue (not in manuscript)
+
+```{r}
+gbm.merged_mac <- gbm.merged[, gbm.merged$Macrophage_score %in% c("Macrophage")]
+
+Idents(gbm.merged_mac) <- gbm.merged_mac$orig.ident
+gbm.merged_mac <- RenameIdents(object = gbm.merged_mac, "S1_2" = "S9",
+                                                "S2_2" = "S10",
+                           "S3_2" = "S11",
+                           "S4_2" = "S12",
+                           "S8_2" = "S16"
+                           )
+gbm.merged_mac$orig.ident <- Idents(gbm.merged_mac)
+correlation <- gbm.merged_mac@meta.data
+
+  
+
+## Make LLM score
+DefaultAssay(gbm.merged_mac) <- "SCT"
+
+## GPNMBhigh gene signature
+Gene <- c("Gpnmb",  "Fabp5",  "Hmox1",  "Spp1" ,  "Arg1")
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+
+gbm.merged_mac <- NormalizeData(gbm.merged_mac) # Needs to be normalised 
+fdscores <- AddModuleScore(gbm.merged_mac, features= list(c(Gene)), name="Gene",nbin=100)
+
+##define the different groups in your Genelist, add '1' to every groupname. Groupnames can be checked in the metadata -> str(fdscores@meta.data)
+groups <- c("Gene1")
+
+##load function to create density values
+densMode <- function(x){
+  td <- density(x)
+  tdx <- td$x
+  tdy <- td$y
+  minx <- tdx[which(diff(sign(diff(tdy)))==2)]
+  peakx <- tdx[which(diff(sign(diff(tdy)))==-2)]
+  return(list(minx=minx, maxy=peakx))
+}
+
+##For every group determine the thesholds and plot several plots
+for (i in groups){
+  ##create densityplots
+  plot(density(fdscores@meta.data[,i]), main=paste("densityplot"))
+  ##classify the cells based on thresholds of 0.1
+  gbm.merged@meta.data[,paste("assignedto",i, sep="")] <- "nonclassified"
+  gbm.merged@meta.data[which(fdscores@meta.data[,i]>0.1),paste("assignedto",i, sep="")] <- paste("assignedto",i, sep=" ")
+  fdscores_gpnmbhigh <- fdscores
+}
+
+correlation_gpnmbhigh <- fdscores_gpnmbhigh@meta.data
+
+# Ntb and tumor correlation score between re- and demyelination from this plot was used for Supplementary Figure 7E
+correlation_perwell <- data.frame(correlation$RemyelinationScore, correlation$DemyelinationScore, correlation$NtbScore1, correlation$TumorScore1, correlation$M01.Score, correlation$M02.Score, correlation$M03.Score,correlation$B01.Score, correlation$B02.Score, correlation$B03.Score, correlation_gpnmbhigh$Gene1)
+
+
+corri <- cor(correlation_perwell[-c(631),])
+corrplot(cor(correlation_perwell[-c(631),]),  
+         tl.col = "black", # Labels color
+         bg = "white",     # Background color
+          col=brewer.pal(n=8, name="PRGn"))       # Color palette
+
+# MG01 correlate with healthy tissue
+chart.Correlation(cor(correlation_perwell[-c(631),]), histogram=TRUE, pch=20)
+write.csv2(cor(correlation_perwell[-c(631),]), "~/Desktop/Correlation_Rebutal.csv")
+```
