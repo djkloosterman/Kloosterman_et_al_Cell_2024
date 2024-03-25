@@ -7,11 +7,12 @@ editor_options:
   chunk_output_type: console
 ---
 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Supplementary Figure 2A-H - Understanding macrophage heterogeneity in the context of glioblastoma
+## Understanding macrophage heterogeneity in the context of glioblastoma
 
 A deeper analysis of the macrophage subsets present in glioblastoma. Here we focus on the distribution and function of GPNMB-high (read LLMs).
 
@@ -28,7 +29,7 @@ library(dplyr)
 
 ```{r}
 # Set working directory to folder "pre-processed human scrna-seq" 
-work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2022 - data availibility/GEO Data - processed/scrna-seq"
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
 load("gbm-complete-myeloid_polished.Rda")
 ```
@@ -147,7 +148,7 @@ my_levels <- c("MG1-P2RY12",
                 "MG2-TNF",
                 "MG3-GPNMB",
                 "MG4-MKI67",
-                "MDM1-CCR7",
+                "MDM1-CCR2",
                 "MDM2-H2-EB1",
                 "MDM3-GPNMB",
                 "MDM4-MKI67" )
@@ -173,7 +174,7 @@ filtereddata1 <- fdscores[, fdscores$clusterf %in% c("MG1-P2RY12")]
 filtereddata2 <- fdscores[, fdscores$clusterf %in% c(	"MG2-TNF")] 
 filtereddata3 <- fdscores[, fdscores$clusterf %in% c(	"MG3-GPNMB" )]
 filtereddata4 <- fdscores[, fdscores$clusterf %in% c(	"MG4-MKI67")]
-filtereddata5 <- fdscores[, fdscores$clusterf %in% c("MDM1-CCR7")] 
+filtereddata5 <- fdscores[, fdscores$clusterf %in% c("MDM1-CCR2")] 
 filtereddata6 <- fdscores[, fdscores$clusterf %in% c( "MDM2-H2-EB1")]
 filtereddata7 <- fdscores[, fdscores$clusterf %in% c(	"MDM3-GPNMB")]
 filtereddata8 <- fdscores[, fdscores$clusterf %in% c( "MDM4-MKI67" )] 
@@ -198,9 +199,9 @@ rm(fdscores)
 
 ## Finalizing data.frame and writing CSV file on desktop
 colnames(fdscomplete) <- names(signatures)
-
+fdscomplete <- as.data.frame(fdscomplete)
 ## Save data for Figure S2B
-write.csv2(fdscomplete, "~/Desktop/SignatureEnrichment_macrophage_MOUSE.csv")
+write.xlsx(fdscomplete, "~/Desktop/SignatureEnrichment_macrophage_MOUSE.xlsx")
 
 
 ## Re-do analysis but on signatures focussed on lipid-laden phenotype in other disease
@@ -212,6 +213,7 @@ pan_LLM_signatures_list <- apply(pan_LLM_signatures, 2, as.list)
 fdscomplete <- c()
 my_levels <- levels(gbm.myeloid$clusterf)
 gbm.myeloid$all <- c("all")
+
 for (i in 1:7){
   DefaultAssay(gbm.myeloid) <- "RNA"
   Gene <- unlist(as.vector(pan_LLM_signatures_list[[i]]))
@@ -221,7 +223,7 @@ Gene <- Gene[Gene %in% rownames(gbm.myeloid)]
 select <- AverageExpression(gbm.myeloid, assays = "RNA", features = c(Gene), group.by = "all")
 select <- unlist(as.vector(select))
 
-Gene <- Gene[a]
+Gene <- Gene[Gene %in% rownames(filtereddata)]
 ##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
 ##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
 ##create a score for every group
@@ -232,7 +234,7 @@ filtereddata1 <- fdscores[, fdscores$clusterf %in% c("MG1-P2RY12")]
 filtereddata2 <- fdscores[, fdscores$clusterf %in% c("MG2-TNF")] 
 filtereddata3 <- fdscores[, fdscores$clusterf %in% c("MG3-GPNMB")] 
 filtereddata4 <- fdscores[, fdscores$clusterf %in% c("MG4-MKI67")] 
-filtereddata5 <- fdscores[, fdscores$clusterf %in% c("MDM1-CCR7")] 
+filtereddata5 <- fdscores[, fdscores$clusterf %in% c("MDM1-CCR2")] 
 filtereddata6 <- fdscores[, fdscores$clusterf %in% c("MDM2-H2-EB1")]
 filtereddata7 <- fdscores[, fdscores$clusterf %in% c("MDM3-GPNMB")] 
 filtereddata8 <- fdscores[, fdscores$clusterf %in% c("MDM4-MKI67")] 
@@ -240,11 +242,11 @@ filtereddata8 <- fdscores[, fdscores$clusterf %in% c("MDM4-MKI67")]
 df1 <- mean(filtereddata1@meta.data$Gene1)*10000 
 df2 <- mean(filtereddata2@meta.data$Gene1)*10000  
 df3 <- mean(filtereddata3@meta.data$Gene1)*10000 
-df4 <- mean(filtereddata4@meta.data$Gene1) *10000
-df5 <- mean(filtereddata5@meta.data$Gene1) *10000
-df6 <- mean(filtereddata6@meta.data$Gene1) *10000
-df7 <- mean(filtereddata7@meta.data$Gene1) *10000
-df8 <- mean(filtereddata8@meta.data$Gene1) *10000
+df4 <- mean(filtereddata4@meta.data$Gene1)*10000
+df5 <- mean(filtereddata5@meta.data$Gene1)*10000
+df6 <- mean(filtereddata6@meta.data$Gene1)*10000
+df7 <- mean(filtereddata7@meta.data$Gene1)*10000
+df8 <- mean(filtereddata8@meta.data$Gene1)*10000
 
 library(data.table)
 fdscompared <- as.data.frame(cbind(df1, df2, df3, df4, df5,df6, df7, df8))
@@ -256,11 +258,12 @@ fdscomplete <- cbind(fdscomplete, fdscompared)
 colnames(fdscomplete) <- names(pan_LLM_signatures_list)
 
 # Save extra data for Figure S1B (LLM focused)
-write.csv2(fdscomplete, "~/Desktop/LLMsignatures_on_GBM-LLM.csv")
+fdscomplete <- as.data.frame(fdscomplete)
+write.xlsx(fdscomplete, "~/Desktop/LLMsignatures_on_GBM-LLM.xlsx")
 ```
 
 
-# Figure S2C-D: Generating data for figure using GO annotation analysis on top 30 genes of each macrophage cluster, data was used to create graph in Prism
+# Supplementary Figure 2C-D: Generating data for figure using GO annotation analysis on top 30 genes of each macrophage cluster, data was used to create graph in Prism
 
 ```{r}
 # load the package
@@ -302,7 +305,7 @@ gostplot(gp_up, interactive = F)
 
 ## --- ## 
 
-macrocluster <- c("MDM1-CCR7")
+macrocluster <- c("MDM1-CCR2")
 genes <- top30[which(top30$cluster == macrocluster),] 
 gp_up = gost(genes$gene, organism = "mmusculus")
 B01_check <- gp_up$result
@@ -355,7 +358,7 @@ gbm.myeloid$Gpnmb <- Idents(gbm.myeloid)
 
 
 DimPlot(gbm.myeloid, reduction = "umap",  label = F, repel = T)
-VlnPlot(gbm.myeloid, features = c("Gpnmb"), group.by = "clusterf", pt.size = 0)
+VlnPlot(gbm.myeloid, features = c("rna_Gpnmb"), group.by = "clusterf", pt.size = 0)
 # Finding classifiers for each subpopulation
 Gpnmbmarkers <- FindAllMarkers(gbm.myeloid, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 Gpnmbmarkers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
@@ -455,7 +458,7 @@ LLM_top30 <- LLM_high$gene[1:30] ## First LLM
 ```
 
 
-# Figure S2F: Generate top30 gene annotation list for LLMs vs non-LLMs, data was used to create graph in Prism
+# Supplementary Figure 2F: Generate top30 gene annotation list for LLMs vs non-LLMs, data was used to create graph in Prism
 
 ```{r}
 # load the data
@@ -485,7 +488,7 @@ write.xlsx(list_of_datasets, file = "~/Desktop/non-LLM_vs_LLM.xlsx")
 ```
 
 
-# Figure S2G-H: Dimplot and percentage of GPNMB-high macrophages per macrophage cluster
+# Supplementary Figure 2G-H: Dimplot and percentage of GPNMB-high macrophages per macrophage cluster
 
 ```{r}
 Idents(gbm.myeloid) <- gbm.myeloid$clusterf
