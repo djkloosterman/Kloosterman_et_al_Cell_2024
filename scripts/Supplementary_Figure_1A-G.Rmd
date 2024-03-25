@@ -7,6 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -23,6 +24,7 @@ library(openxlsx)
 library(ggpubr)
 library(gridExtra)
 library(gprofiler2)
+library(dplyr)
 ```
 
 
@@ -30,7 +32,7 @@ library(gprofiler2)
 
 ```{r}
 # Set working directory to folder "pre-processed human scrna-seq" 
-work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2022 - data availibility/GEO Data - processed/scrna-seq"
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
 
 load("gbm-complete-tumor_ink4a.Rda")
@@ -54,7 +56,7 @@ save(gbm.tumor,file="~/Desktop/gbm-complete-polished.Rda")
 ```
 
 
-# Figure S1A-B and S1D
+# Supplementary Figure S1A-B and S1D
 
 ```{r}
 ## Plot tumor model/stage, subtype and location
@@ -152,7 +154,6 @@ draw(out,  merge_legend = F, heatmap_legend_side="bottom", annotation_legend_sid
            legend_grouping = "original") # Save in 5x15
 
 
-# 1 = 5, 2 = 6, 3 = 3, 4 = 4, 5 = 2, 6 = 1
 ```
 
 
@@ -230,10 +231,11 @@ combined$subtype <- as.factor(combined$subtype)
 
 ```{r}
 # Order clusters # 1 = 4, 2 = 6, 3 = 5, 4 = 1, 5 = 2, 6 = 3
+# New order clusters # 1 = 6, 2 = 5, 3 = 4, 4 =  3 ,5 = 1, 6 = 2
 
 ## Cluster 1
 
-clusternumber <- 4
+clusternumber <- 6
 
 cluster <- combined[which(combined$genecluster == clusternumber),] 
 cluster$subtypegene <- paste(cluster$subtype, cluster$gene)
@@ -273,7 +275,7 @@ gostplot(gp_up, interactive = T)
 
 ## Cluster 2
 
-clusternumber <- 6
+clusternumber <- 5
 
 cluster <- combined[which(combined$genecluster == clusternumber),] 
 cluster$subtypegene <- paste(cluster$subtype, cluster$gene)
@@ -313,7 +315,7 @@ gostplot(gp_up, interactive = T)
 
 ## Cluster 3
 
-clusternumber <- 5
+clusternumber <- 4
 
 cluster <- combined[which(combined$genecluster == clusternumber),] 
 cluster$subtypegene <- paste(cluster$subtype, cluster$gene)
@@ -353,7 +355,7 @@ gostplot(gp_up, interactive = T)
 
 ## Cluster 4
 
-clusternumber <- 1
+clusternumber <- 3
 
 cluster <- combined[which(combined$genecluster == clusternumber),] 
 cluster$subtypegene <- paste(cluster$subtype, cluster$gene)
@@ -393,7 +395,7 @@ gostplot(gp_up, interactive = T)
 
 ## Cluster 5
 
-clusternumber <- 2
+clusternumber <- 1
 
 cluster <- combined[which(combined$genecluster == clusternumber),] 
 cluster$subtypegene <- paste(cluster$subtype, cluster$gene)
@@ -432,7 +434,7 @@ gostplot(gp_up, interactive = T)
 
 ## Cluster 6
 
-clusternumber <- 3
+clusternumber <- 2
 
 cluster <- combined[which(combined$genecluster == clusternumber),] 
 cluster$subtypegene <- paste(cluster$subtype, cluster$gene)
@@ -477,4 +479,6 @@ ggarrange(cluster_1, cluster_2,cluster_3, cluster_4,cluster_5, cluster_6,
 # Figure S1G
 list_of_datasets <- list("Cluster1" = check_cluster1, "Cluster2" = check_cluster2, "Cluster3" = check_cluster3, "Cluster4" = check_cluster4, "Cluster5" = check_cluster5, "Cluster6" = check_cluster6)
 write.xlsx(list_of_datasets, file = "~/Desktop/heatmapGO.xlsx")
+
+write.csv(split, file = "~/Desktop/heatmap_genes.csv" )
 ```
