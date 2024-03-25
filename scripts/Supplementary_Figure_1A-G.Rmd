@@ -31,7 +31,7 @@ library(dplyr)
 # Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
 
 ```{r}
-# Set working directory to folder "pre-processed human scrna-seq" 
+# Set working directory to folder "scrna-seq" 
 work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
 
