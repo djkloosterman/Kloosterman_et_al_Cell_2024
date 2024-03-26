@@ -1,0 +1,244 @@
+---
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 9A-B"
+author: "Daan J. Kloosterman"
+date: "21/03/24"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Supplementary Figure 9A-B: Translation of metabolic activity glioblastoma subsets to patients
+
+# Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
+
+```{r}
+# Set working directory to folder "scrna-seq" 
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
+setwd(work_dir)
+
+load("combinedHuman10x_merged.Rda")
+```
+
+
+# Assign subtype
+
+```{r}
+# Select tumor clusters
+filtereddata <- combinedHuman10x_merged[, combinedHuman10x_merged$seurat_clusters %in% c("5", "20","7", "14", "20", "10", "4", "11", "19", "23", "12")]
+filtereddata <- FindNeighbors(filtereddata, dims = 1:5)
+filtereddata <- FindClusters(filtereddata, algorithm = 2, random.seed = 200, resolution = 0.1)
+filtereddata <- RunUMAP(filtereddata, dims = 1:5)
+DimPlot(filtereddata, reduction = "umap",  group.by = "seurat_clusters", label = TRUE)
+
+
+# Loading glioblastoma cellular subtype modules (Neftel et al., 2019)
+work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures"
+setwd(work_dir)
+Cell_Signatures <- read_excel("Glioblastoma_meta-module_genelist.xlsx")
+
+MES1.features <- Cell_Signatures$MES1
+MES2.features <- Cell_Signatures$MES2
+AC.features <- Cell_Signatures$AC
+OPC.features <- Cell_Signatures$OPC
+NPC1.features <- Cell_Signatures$NPC1
+NPC2.features <- Cell_Signatures$NPC2
+
+## Function to assign cellular subtype
+assignSubtype <- function (object, MES1.features,  MES2.features, AC.features, OPC.features, NPC1.features, NPC2.features ,set.ident = FALSE, ctrl_genes = 100,
+                           ...)
+{
+  name <- "Cell.Subtype"
+  features <- list(  MES1.Score = MES1.features, MES2.Score =  MES2.features, AC.Score = AC.features, OPC.Score = OPC.features, NPC1.Score = NPC1.features, NPC2.Score = NPC2.features)
+  object.cc <- AddModuleScore(object = object,
+                              features = features,
+                              name = name,
+                              ctrl = min(c(vapply(X = features, FUN = length, FUN.VALUE = numeric(length = 1))), 
+                                         ctrl_genes), 
+                              ...)
+  cc.columns <- grep(pattern = name, x = colnames(x = object.cc[[]]),
+                     value = TRUE)
+  cc.scores <- object.cc[[cc.columns]]
+  rm(object.cc)
+  CheckGC()
+  assignments <- apply(X = cc.scores, MARGIN = 1, FUN = function(scores,
+                                                                 first = "MES1", second = "MES2", third = "AC", fourth = "OPC", fifth = "NPC1", sixth = "NPC2", null = "Undecided") {
+    if (all(scores < -0)) {
+      return(null)
+    }
+    else {
+      return(c(first, second, third, fourth, fifth, sixth)[which(x = scores == max(scores))])
+    }
+  }
+  )
+  cc.scores <- merge(x = cc.scores, y = data.frame(assignments),
+                     by = 0)
+  colnames(x = cc.scores) <- c("rownames", "MES1.Score", "MES2.Score", "AC.Score","OPC.Score", "NPC1.Score", "NPC2.Score",
+                               "Cell.Subtype")
+  rownames(x = cc.scores) <- cc.scores$rownames
+  cc.scores <- cc.scores[, c("MES1.Score", "MES2.Score", "AC.Score","OPC.Score", "NPC1.Score", "NPC2.Score","Cell.Subtype")]
+  object[[colnames(x = cc.scores)]] <- cc.scores
+  if (set.ident) {
+    object[["old.ident"]] <- Idents(object = object)
+    Idents(object = object) <- "Cell.Subtype"
+  }
+  return(object)
+}
+
+filtereddata <- assignSubtype(filtereddata, MES1.features = MES1.features, MES2.features = MES2.features, AC.features = AC.features, OPC.features = OPC.features, NPC1.features = NPC1.features, NPC2.features = NPC2.features)
+
+# Plot cellular celltype distribution
+DimPlot(filtereddata, reduction = "umap", group.by = "Cell.Subtype", pt.size = 2)
+
+# Create .csv file with subtype composition per samples
+x_abundance <- t(table(filtereddata$Cell.Subtype, filtereddata$signature))
+write.csv(x_abundance, file = "~/Desktop/x_abundance_Cell.Subtype-patient.csv")
+```
+
+```{r}
+## Give new ID - human dataset
+DimPlot(filtereddata, group.by = "Cell.Subtype", reduction = "umap")
+Idents(filtereddata) <- filtereddata$Cell.Subtype
+levels(filtereddata)
+new.cluster.ids <- c("AC",	"MES",	"NPC", "MES", "OPC","NPC", "Undecided")
+names(new.cluster.ids) <- levels(filtereddata)
+filtereddata <- RenameIdents(filtereddata, new.cluster.ids)
+filtereddata$Cell.Subtype.Grouped <- Idents(filtereddata) 
+filtereddata <- filtereddata[, filtereddata$Cell.Subtype.Grouped %in% c("AC", "MES", "NPC", "OPC")]
+DimPlot(filtereddata, group.by = "Cell.Subtype.Grouped", reduction = "umap")
+```
+
+
+# Metabolic activity of cellular subtypes
+
+```{r}
+load("~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - code availibility/signatures/keggpathway_human.RData")
+
+## Selecting only metabolic pathways
+kg.human.met <- kg.human$kg.sets[kg.human$sigmet.idx] # Select which pathways
+
+my_levels <- c("OPC","MES", "NPC", "AC")
+
+## Prepping the data
+fdscomplete <- c()
+
+# The script
+for (i in 1:249){
+  DefaultAssay(filtereddata) <- "RNA"
+  Gene <- unlist(as.vector(kg.human.met[[i]]))
+
+##select the genes from the geneset that are in the Cluster.1 expression data
+Gene <- Gene[Gene %in% rownames(filtereddata)]
+
+##Add score to every cell and create new seurat object. Not necessary to create a new object but in case anything goes wrong your original data is still there.
+##This part is taken from the cellcycle classification, however I only used the part where Geneset scores were assigned to the cell
+##create a score for every group
+fdscores <- AddModuleScore(filtereddata, features=list(c(Gene)), name="Gene",nbin=100)
+
+# Average of fdscores
+library(data.table)
+
+gbm.tumor1 <- fdscores[, fdscores$Cell.Subtype.Grouped %in% c("OPC")] 
+gbm.tumor2 <- fdscores[, fdscores$Cell.Subtype.Grouped %in% c( "MES")] 
+gbm.tumor3 <- fdscores[, fdscores$Cell.Subtype.Grouped %in% c( "NPC")] 
+gbm.tumor4 <- fdscores[, fdscores$Cell.Subtype.Grouped %in% c( "AC")] 
+
+
+df1 <- mean(gbm.tumor1@meta.data$Gene) 
+df2 <- mean(gbm.tumor2@meta.data$Gene) 
+df3 <- mean(gbm.tumor3@meta.data$Gene) 
+df4 <- mean(gbm.tumor4@meta.data$Gene) 
+
+
+fdscompared <- as.data.frame(cbind(df1, df2, df3, df4))
+fdscompared <- t(fdscompared)
+row.names(fdscompared) <- my_levels
+
+fdscomplete <- cbind(fdscomplete, fdscompared)
+rm(fdscores)
+}
+
+  ## Finalizing data.frame and writing CSV file on desktop
+colnames(fdscomplete) <- names(kg.human.met)
+
+write.csv2(fdscomplete, "~/Desktop/GOscores_gbm-tumor_subtype_HUMAN.csv")
+```
+
+
+# Preparing data for radar plot
+
+```{r}
+## Load metabolic activity dataset
+library(readxl)
+GOscores_gbm_tumor_subtype_HUMAN <- as.data.frame(fdscomplete)
+
+
+df <- cbind(GOscores_gbm_tumor_subtype_HUMAN$`hsa00061 Fatty acid biosynthesis`, GOscores_gbm_tumor_subtype_HUMAN$`hsa01212 Fatty acid metabolism`, GOscores_gbm_tumor_subtype_HUMAN$`hsa00100 Steroid biosynthesis`, GOscores_gbm_tumor_subtype_HUMAN$`hsa01040 Biosynthesis of unsaturated fatty acids`, GOscores_gbm_tumor_subtype_HUMAN$`hsa00020 Citrate cycle (TCA cycle)`, GOscores_gbm_tumor_subtype_HUMAN$`hsa00500 Starch and sucrose metabolism`,
+            GOscores_gbm_tumor_subtype_HUMAN$`hsa00010 Glycolysis / Gluconeogenesis`,
+            GOscores_gbm_tumor_subtype_HUMAN$`hsa00190 Oxidative phosphorylation`)
+df <- as.data.frame(df)
+row.names(df) <- GOscores_gbm_tumor_subtype_HUMAN$Samples
+colnames(df) <- c("Fatty acid biosynthesis", "Fatty acid metabolism", "Steroid biosynthesis", "Biosynthesis of unsaturated fatty acids", "Citrate cycle (TCA cycle)", "Starch and sucrose metabolism", "Glycolysis", "Oxidative phosphorylation")
+
+library(fmsb)
+
+# Define the variable ranges: maximum and minimum
+max_min <- data.frame(
+  "Fatty.acid.biosynthesis" = c(0.76, -0.01), "Fatty.acid.metabolism" = c(0.76, -0.01), "Steroid.biosynthesis" = c(0.76, -0.01),
+"Biosynthesis.of.unsaturated.fatty.acids" = c(0.76, -0.01),"Citrate.cycle.(TCA.cycle)" = c(0.76, -0.01), "Starch.and.sucrose.metabolism" = c(0.76, -0.01), "Glycolysis" = c(0.76, -0.01), "Oxidative phosphorylation" = c(0.76, -0.01))
+
+rownames(max_min) <- c("Max", "Min")
+colnames(max_min) <- c("Fatty acid biosynthesis", "Fatty acid metabolism", "Steroid biosynthesis", "Biosynthesis of unsaturated fatty acids","Citrate cycle (TCA cycle)",  "Starch and sucrose metabolism", "Glycolysis", "Oxidative phosphorylation")
+```
+
+
+# Supplementary Figure 9A - Radar plot of relative metabolic activity of human tumor cellular subtypes
+
+```{r}
+# Rescale value to range between 0-1
+df_scaled <- round(apply(df, 2, scales::rescale), 2)
+df_scaled <- as.data.frame(df_scaled)
+head(df_scaled)
+
+# Prepare the data for creating the radar plot using the fmsb package
+# Variables summary
+# Get the minimum and the max of every column  
+col_max <- apply(df_scaled, 2, max)
+col_min <- apply(df_scaled, 2, min)
+# Calculate the average profile 
+col_mean <- apply(df_scaled, 2, mean)
+# Put together the summary of columns
+col_summary <- t(data.frame(Max = col_max, Min = col_min, Average = col_mean))
+
+# Produce radar plots showing both the average profile and the individual profile
+# Bind variables summary to the data
+df_scaled2 <- as.data.frame(rbind(col_summary, df_scaled))
+head(df_scaled2)
+
+opar <- par() 
+# Define settings for plotting in a 3x4 grid, with appropriate margins:
+par(mar = rep(0.8,4))
+par(mfrow = c(1,4))
+# Produce a radar-chart for each student
+for (i in 4:nrow(df_scaled2)) {
+  radarchart(
+    df_scaled2[c(1:3, i), ],
+    pfcol = c("#99999980",NA),
+    pcol= c(NA,2), plty = 1, plwd = 2,
+    title = row.names(df_scaled2)[i]
+  )
+}
+# Restore the standard par() settings
+par <- par(opar)
+```
+
+# Supplementary Figure 9B - Dotplot of average expression of cholesterol import and biosynthesis genes per glioblastoma subtype in patients
+
+```{r}
+# Supplementary Figure 9B 
+DotPlot(filtereddata, group.by = "Cell.Subtype", features = c("VLDLR" ,"FDFT1", "DHCR24", "HMGCR", "DHCR7"))
+```
