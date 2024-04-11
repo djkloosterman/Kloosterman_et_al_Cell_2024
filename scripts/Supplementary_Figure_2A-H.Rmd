@@ -22,6 +22,8 @@ A deeper analysis of the macrophage subsets present in glioblastoma. Here we foc
 library(Seurat)
 library(readxl)
 library(dplyr)
+library(ggplot2)
+library(openxlsx)
 ```
 
 
@@ -134,10 +136,11 @@ CD11chigh <- c("Dkk2", "Saa3", "Tslp", "Trpc4", "Fsd2", "Gpnmb", "Pla2g2d", "Gpr
 AcuteDemyleination <- c("Spp1", "Lyz2", "Cxcl", "Ccl5", "Gpnmb", "Ifit3", "Apoc1", "Ccl12", "Rmi2", "Cd74") # (Plemel et al., 2020)
 EAEMicroglia <- c( "Ly86", "Ccl1", "Cxcl10", "Mki67", "Ccl4", "Ccl5", "Cxcl10")
 ## Some found in https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7677361/
+h12_timestamp<- c("Sat1", "Ccl3","Chil3","Clec4e","Ifitm6","Anxa2","Ccl4","Plac8","Cd83","Ifitm2","Pirb")
+h48_timestamp<- c("C3","Vegfa","Ccl5","Flt1","Il7r","Pgk1","Il18p","Arg1","Trem2","Cd63","Tgfbr1","Gpnmb")
+signatures <- list(as.list(HomeostaticMicroglia), as.list(PreactiveMicroglia), as.list(RemyelinationMicroglia), as.list(DemyelinationMicroglia),as.list(Lipidassociated) , as.list(Neuroinflammatory), as.list(TcellexhaustionMicroglia), as.list(EctopicMacros), as.list(GAM), as.list(DAM_MP), as.list(DAM_KS), as.list(ATM), as.list(PAM), as.list(Monocyte), as.list(CD11chigh), as.list(AcuteDemyleination), as.list(EAEMicroglia), as.list(h12_timestamp), as.list(h48_timestamp))
 
-signatures <- list(as.list(HomeostaticMicroglia), as.list(PreactiveMicroglia), as.list(RemyelinationMicroglia), as.list(DemyelinationMicroglia),as.list(Lipidassociated) , as.list(Neuroinflammatory), as.list(TcellexhaustionMicroglia), as.list(EctopicMacros), as.list(GAM), as.list(DAM_MP), as.list(DAM_KS), as.list(ATM), as.list(PAM), as.list(Monocyte), as.list(CD11chigh), as.list(AcuteDemyleination), as.list(EAEMicroglia))
-
-names(signatures) <- c("HomeostaticMicroglia", "PreactiveMicroglia", "RemyelinationMicroglia", "DemyelinationMicroglia", "Lipidassociated", "Neuroinflammatory", "TcellexhaustionMicroglia", "EctopicMacros", "GAM", "DAM_MP", "DAM_KS", "ATM", "PAM", "Monocyte", "CD11chigh", "AcuteDemyleination", "EAEMicroglia")
+names(signatures) <- c("HomeostaticMicroglia", "PreactiveMicroglia", "RemyelinationMicroglia", "DemyelinationMicroglia", "Lipidassociated", "Neuroinflammatory", "TcellexhaustionMicroglia", "EctopicMacros", "GAM", "DAM_MP", "DAM_KS", "ATM", "PAM", "Monocyte", "CD11chigh", "AcuteDemyleination", "EAEMicroglia", "12 Hour Timestamp",  "48 Hour Timestamp")
 
 
 
@@ -581,3 +584,4 @@ DefaultAssay(gbm.myeloid) <- "RNA"
 # Set working directory to folder where integrated and filtered data will be saved: "scrna-seq"
 save(gbm.myeloid,file="~/Desktop/gbm-complete-myeloid_polished.Rda")
 ```
+
