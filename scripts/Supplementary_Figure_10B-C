@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Supplementary Figure 9A-B: Translation of metabolic activity glioblastoma subsets to patients
+## Supplementary Figure 10B-C: Translation of metabolic activity glioblastoma subsets to patients
 
 # Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
 
