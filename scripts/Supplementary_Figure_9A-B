@@ -1,5 +1,5 @@
 ---
-title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 9A-B"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 10B-C"
 author: "Daan J. Kloosterman"
 date: "21/03/24"
 output: html_document
@@ -195,8 +195,15 @@ rownames(max_min) <- c("Max", "Min")
 colnames(max_min) <- c("Fatty acid biosynthesis", "Fatty acid metabolism", "Steroid biosynthesis", "Biosynthesis of unsaturated fatty acids","Citrate cycle (TCA cycle)",  "Starch and sucrose metabolism", "Glycolysis", "Oxidative phosphorylation")
 ```
 
+# Supplementary Figure 10B - Dotplot of average expression of cholesterol import and biosynthesis genes per glioblastoma subtype in patients
 
-# Supplementary Figure 9A - Radar plot of relative metabolic activity of human tumor cellular subtypes
+```{r}
+# Supplementary Figure 9B 
+DotPlot(filtereddata, group.by = "Cell.Subtype", features = c("VLDLR" ,"FDFT1", "DHCR24", "HMGCR", "DHCR7"))
+```
+
+
+# Supplementary Figure 10C - Radar plot of relative metabolic activity of human tumor cellular subtypes
 
 ```{r}
 # Rescale value to range between 0-1
@@ -236,9 +243,3 @@ for (i in 4:nrow(df_scaled2)) {
 par <- par(opar)
 ```
 
-# Supplementary Figure 9B - Dotplot of average expression of cholesterol import and biosynthesis genes per glioblastoma subtype in patients
-
-```{r}
-# Supplementary Figure 9B 
-DotPlot(filtereddata, group.by = "Cell.Subtype", features = c("VLDLR" ,"FDFT1", "DHCR24", "HMGCR", "DHCR7"))
-```
