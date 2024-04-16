@@ -1,5 +1,5 @@
 ---
-title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 9E"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 9G"
 author: "Daan J. Kloosterman"
 date: "21/03/24"
 output: html_document
@@ -12,9 +12,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Supplementary Figure 9E: Gene expression associated with cholesterol export between LLMs and non-LLMs
+## Supplementary Figure 9G: Gene expression associated with cholesterol export between LLMs and non-LLMs
 
 # Loading packages/libraries required for the code
+
 ```{r}
 library(Seurat)
 library(nichenetr)
@@ -24,9 +25,19 @@ library(ggplot2)
 # Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
 
 ```{r}
-# Set working directory to folder "scrna-seq" 
+# Set working directory to folder "pre-processed human scrna-seq" 
 work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
 
 load("gbm-complete-myeloid_polished.Rda")
 ```
+
+# Supplementary Figure 9G - Violin plot of cholesterol efflux genes in non-LLMs and LLMs
+
+
+```{r}
+VlnPlot(gbm.myeloid, features = c("Abca1"), group.by = "LLM", pt.size=0) + scale_fill_manual(values =  c("#FFA07A", "#AB82FF"))
+VlnPlot(gbm.myeloid, features = c("Abcg1"), group.by = "LLM", pt.size=0) + scale_fill_manual(values =  c("#FFA07A", "#AB82FF"))
+VlnPlot(gbm.myeloid, features = c("Apoe"), group.by = "LLM", pt.size=0) + scale_fill_manual(values =  c("#FFA07A", "#AB82FF"))
+```
+
