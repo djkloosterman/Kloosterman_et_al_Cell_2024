@@ -29,7 +29,7 @@ work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 
 setwd(work_dir)
 # Set working directory to folder "'...'/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq" 
 
-load("gbm-complete-subset.Rda") 
+load("gbm-complete-subset.rds") 
 DefaultAssay(gbm.combined_subset) <- "RNA"
 ```
 
