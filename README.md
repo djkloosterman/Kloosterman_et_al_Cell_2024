@@ -13,7 +13,7 @@ Please contact d.kloosterman@nki.nl with any questions.
 
 This repository contains the scripts needed to reproduce the figures from this manuscript that were generated with R. In addition, we added several other large datasets that were used to generate figures outside of R, and will therefore have no scripts to reproduce the figures in the manuscript.
 
-We provide scripts to reproduce the figures in the manuscript which used the following datasets:
+We provide scripts to reproduce the figures in the manuscript which were produced when analyzing following datasets:
   - scRNA-seq on sorted CD45-/CD45+ cells (50:50) from primary and recurrent glioblastoma GEMMs with either a PDG-Ink4 or PDG-shp53 background
   - VISIUM 10x samples of primary and recurrent glioblastoma GEMMs with either a PDG-Ink4 or PDG-shp53 background
 
