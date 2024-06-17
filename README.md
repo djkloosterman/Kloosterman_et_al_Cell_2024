@@ -20,4 +20,4 @@ We provide scripts to reproduce the figures in the manuscript which were produce
 
 # Extended figure legends
 
-This repository also contains extended figure legends for the main figures. The extended figure legends contain extensive details describing the graphs in a more complete manner.
+This repository also contains extended figure legends for the main figures. The extended figure legends contain extensive details relevant for complete understanding the main figures.
