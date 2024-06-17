@@ -18,6 +18,7 @@ We provide scripts to reproduce the figures in the manuscript which were produce
   - scRNA-seq on sorted CD45-/CD45+ cells (50:50) from primary and recurrent glioblastoma GEMMs with either a PDG-Ink4 or PDG-shp53 background
   - VISIUM 10x samples of primary and recurrent glioblastoma GEMMs with either a PDG-Ink4 or PDG-shp53 background
 
+
 # Extended figure legends
 
 This repository also contains extended figure legends for the main figures. The extended figure legends contain extensive details relevant for complete understanding the main figures.
