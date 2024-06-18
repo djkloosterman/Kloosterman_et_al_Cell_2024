@@ -21,4 +21,4 @@ We provide scripts to reproduce the figures in the manuscript which were produce
 
 # Extended figure legends
 
-This repository also contains extended figure legends for the main figures (Kloosterman and Erbani et al - Extended Main Figure Legends.docx). The extended figure legends contain extensive details relevant for complete understanding the main figures.
+This repository also contains extended figure legends for the main figures (Kloosterman and Erbani et al - Extended Main Figure Legends.docx). The extended figure legends contain extensive details relevant for complete understanding of the main figures.
