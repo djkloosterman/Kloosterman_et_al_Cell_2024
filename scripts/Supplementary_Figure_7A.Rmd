@@ -1,5 +1,5 @@
 ---
-title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 10A"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 7A"
 author: "Daan J. Kloosterman"
 date: "21/03/24"
 output: html_document
@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-## Supplementary Figure 10A: Gene expression associated with cholesterol biosynthesis across cell types
+## Figure S7A: Gene expression associated with cholesterol biosynthesis across cell types
 
 # Loading packages/libraries required for the code
 ```{r}
