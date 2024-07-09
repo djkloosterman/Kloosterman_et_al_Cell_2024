@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Supplementary Figure 6A: Cd36 gene expression across major cell type populations in TME to show specificity of SSO targeting
+## Figure S4A: Cd36 gene expression across major cell type populations in TME to show specificity of SSO targeting
 
 # Loading packages/libraries required for the code
 ```{r}
@@ -35,6 +35,6 @@ DefaultAssay(gbm.combined_subset) <- "RNA"
 # Final figure
 
 ```{r}
-# Supplementary Figure 6A 
+# Figure S4A 
 DotPlot(gbm.combined_subset, features = c("Cd36")) + scale_y_discrete(limits = rev(levels(Idents(gbm.combined_subset))))
 ```
