@@ -1,5 +1,5 @@
 ---
-title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 2A-H"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 1A-H"
 author: "Daan J. Kloosterman"
 date: "15/03/24"
 output: html_document
@@ -51,7 +51,7 @@ top30 <- pbmc.markers %>% group_by(cluster) %>% top_n(n = 30, avg_log2FC)
 write.csv(top30,"~/Desktop/Top30genes.csv", row.names = FALSE)
 ```
 
-## Figure S2A: Justification for cluster naming
+## Figure S1A: Justification for cluster naming
 
 ```{r}
 library(Seurat)
@@ -95,7 +95,7 @@ ggplot(gbm.myeloid_subset, aes(factor(Idents), Expr, fill = factor(Idents))) +
   scale_x_discrete(guide = guide_axis(angle = 45))
 
 
-## Figure S2A
+## Figure S1A
 ggplot(gbm.myeloid_subset, aes(Expr, factor(Idents), fill = factor(Idents))) +
         geom_violin(scale = "width", adjust = 1, trim = TRUE) +
         scale_x_continuous(expand = c(0, 0), labels = function(x)
@@ -113,7 +113,7 @@ ggplot(gbm.myeloid_subset, aes(Expr, factor(Idents), fill = factor(Idents))) +
 ```
 
 
-# Figure S2B: Generating data for heatmap (created in Prism) using published macrophages subset signature enrichment scores
+# Figure S1B: Generating data for heatmap (created in Prism) using published macrophages subset signature enrichment scores
 
 ```{r}
 library(data.table)
@@ -266,7 +266,7 @@ write.xlsx(fdscomplete, "~/Desktop/LLMsignatures_on_GBM-LLM.xlsx")
 ```
 
 
-# Supplementary Figure 2C-D: Generating data for figure using GO annotation analysis on top 30 genes of each macrophage cluster, data was used to create graph in Prism
+# Figure S1C-D: Generating data for figure using GO annotation analysis on top 30 genes of each macrophage cluster, data was used to create graph in Prism
 
 ```{r}
 # load the package
@@ -461,7 +461,7 @@ LLM_top30 <- LLM_high$gene[1:30] ## First LLM
 ```
 
 
-# Supplementary Figure 2F: Generate top30 gene annotation list for LLMs vs non-LLMs, data was used to create graph in Prism
+# Supplementary Figure S1G: Generate top30 gene annotation list for LLMs vs non-LLMs, data was used to create graph in Prism
 
 ```{r}
 # load the data
@@ -491,7 +491,7 @@ write.xlsx(list_of_datasets, file = "~/Desktop/non-LLM_vs_LLM.xlsx")
 ```
 
 
-# Supplementary Figure 2G-H: Dimplot and percentage of GPNMB-high macrophages per macrophage cluster
+# Figure S1H-I: Violinplot and percentage of GPNMB-high macrophages per macrophage cluster
 
 ```{r}
 Idents(gbm.myeloid) <- gbm.myeloid$clusterf
