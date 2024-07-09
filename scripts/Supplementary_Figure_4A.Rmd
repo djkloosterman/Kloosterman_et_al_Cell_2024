@@ -1,5 +1,5 @@
 ---
-title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 6A"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 4A"
 author: "Daan J. Kloosterman"
 date: "21/03/24"
 output: html_document
