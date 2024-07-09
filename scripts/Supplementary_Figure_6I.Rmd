@@ -1,5 +1,5 @@
 ---
-title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 9G"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 6I"
 author: "Daan J. Kloosterman"
 date: "21/03/24"
 output: html_document
@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Supplementary Figure 9G: Gene expression associated with cholesterol export between LLMs and non-LLMs
+## Figure S6I: Gene expression associated with cholesterol export between LLMs and non-LLMs
 
 # Loading packages/libraries required for the code
 
