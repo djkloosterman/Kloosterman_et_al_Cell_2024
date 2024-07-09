@@ -1,5 +1,5 @@
 ---
-title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 10B-C"
+title: "Kloosterman and Erbani et al., Cell 2024: Supplementary Figure 7B-C"
 author: "Daan J. Kloosterman"
 date: "21/03/24"
 output: html_document
@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Supplementary Figure 10B-C: Translation of metabolic activity glioblastoma subsets to patients
+## Figure S7B-C: Translation of metabolic activity glioblastoma subsets to patients
 
 # Setting working directory and loading all the pre-processed data files (only works when you press "Run Current Chunk")
 
@@ -20,7 +20,6 @@ knitr::opts_chunk$set(echo = TRUE)
 # Set working directory to folder "scrna-seq" 
 work_dir <- "~/surfdrive/Code Availability/Kloosterman_et_al/Kloosterman et al. 2024 - data availibility/GEO Data - processed/scrna-seq"
 setwd(work_dir)
-
 load("combinedHuman10x_merged.Rda")
 ```
 
@@ -162,7 +161,7 @@ fdscomplete <- cbind(fdscomplete, fdscompared)
 rm(fdscores)
 }
 
-  ## Finalizing data.frame and writing CSV file on desktop
+## Finalizing data.frame and writing CSV file on desktop
 colnames(fdscomplete) <- names(kg.human.met)
 
 write.csv2(fdscomplete, "~/Desktop/GOscores_gbm-tumor_subtype_HUMAN.csv")
@@ -195,15 +194,15 @@ rownames(max_min) <- c("Max", "Min")
 colnames(max_min) <- c("Fatty acid biosynthesis", "Fatty acid metabolism", "Steroid biosynthesis", "Biosynthesis of unsaturated fatty acids","Citrate cycle (TCA cycle)",  "Starch and sucrose metabolism", "Glycolysis", "Oxidative phosphorylation")
 ```
 
-# Supplementary Figure 10B - Dotplot of average expression of cholesterol import and biosynthesis genes per glioblastoma subtype in patients
+# Figure S7B - Dotplot of average expression of cholesterol import and biosynthesis genes per glioblastoma subtype in patients
 
 ```{r}
-# Supplementary Figure 9B 
+# Figure S7B 
 DotPlot(filtereddata, group.by = "Cell.Subtype", features = c("VLDLR" ,"FDFT1", "DHCR24", "HMGCR", "DHCR7"))
 ```
 
 
-# Supplementary Figure 10C - Radar plot of relative metabolic activity of human tumor cellular subtypes
+# Figure S7C - Radar plot of relative metabolic activity of human tumor cellular subtypes
 
 ```{r}
 # Rescale value to range between 0-1
