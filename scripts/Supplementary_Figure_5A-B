@@ -12,7 +12,7 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Supplementary Figure 7D-E - De- and remyelination signature in tumor microenvironment
+## Figure S5A-B - De- and remyelination signature in tumor microenvironment
 
 To see if there is de- and remyelination pathways active in the glioblastoma microenvironment, we used de- an remyelination signatures to identify if and where they are active.
 
@@ -76,7 +76,7 @@ gbm.merged$RemyelinationScore1 <- as.numeric(gbm.merged$RemyelinationScore1)
 gbm.merged <- AddModuleScore(gbm.merged, features= list(c(DemyelinationFeatures)), name="DemyelinationScore")
 gbm.merged$DemyelinationScore1 <- as.numeric(gbm.merged$DemyelinationScore1)
 
-# Supplementary Figure 7D
+# Figure S5A
 a1 <- SpatialFeaturePlot(gbm.merged, features = c("RemyelinationScore1"), image.alpha = 1, images = c("Ink4a_Rec_S2", "Ink4a_Prim_S8_2"))
 a2 <- SpatialFeaturePlot(gbm.merged, features = c("DemyelinationScore1"), image.alpha = 1, images = c("Ink4a_Rec_S2", "Ink4a_Prim_S8_2"))
 a1 + a2
@@ -162,7 +162,7 @@ write.csv(gbm.merged_markers_top30, file = "~/Desktop/VISIUM_tumor_vs_healthy_To
 ```
 
 
-# Supplementary Figure 7E: Data generated to create correlation plot between different spot assignments. Heatmap generated in this chuck was remodelled in illustrator for aesthetic purposes.
+# Figure S5B: Data generated to create correlation plot between different spot assignments. Heatmap generated in this chuck was remodelled in illustrator for aesthetic purposes.
 
 ```{r}
 gbm.merged_tumormac <- gbm.merged_tumor[, gbm.merged_tumor$Macrophage_score %in% c("Macrophage")]
@@ -232,7 +232,7 @@ write.csv2(cor(correlation_perwell[-c(631),]), "~/Desktop/Correlation_Figure2D.c
 ```
 
 
-# Correlation macrophage subsets (M01) between healthy and tumor tissue (most not in manuscript, correlation between healthy and tumor with de- and remyelination pathway activity is implemented in supplementary figure 7-E)
+# Correlation macrophage subsets (M01) between healthy and tumor tissue (most not in manuscript, correlation between healthy and tumor with de- and remyelination pathway activity is implemented in Figure S5B)
 
 ```{r}
 gbm.merged_mac <- gbm.merged[, gbm.merged$Macrophage_score %in% c("Macrophage")]
@@ -287,7 +287,7 @@ for (i in groups){
 
 correlation_gpnmbhigh <- fdscores_gpnmbhigh@meta.data
 
-# Ntb and tumor correlation score between re- and demyelination from this plot was used for Supplementary Figure 7E
+# Ntb and tumor correlation score between re- and demyelination from this plot was used for Figure S5B
 correlation_perwell <- data.frame(correlation$RemyelinationScore, correlation$DemyelinationScore, correlation$NtbScore1, correlation$TumorScore1, correlation$M01.Score, correlation$M02.Score, correlation$M03.Score,correlation$B01.Score, correlation$B02.Score, correlation$B03.Score, correlation_gpnmbhigh$Gene1)
 
 
