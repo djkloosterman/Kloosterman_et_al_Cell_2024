@@ -2,9 +2,7 @@
 
 This repository contains the metadata necessary for the analysis of the scRNA-seq, VISIUM and other datasets generated and presented in Kloosterman, D.J., Erbani, J., et al. Cell 2024: _Macrophage mediated myelin-recycling fuels brain cancer malignancy_.
 
-![image-1](https://github.com/djkloosterman/Kloosterman_et_al/assets/50464178/06f51ed4-1d7b-4215-9154-d7239c99a389)
-
-Please contact d.kloosterman@nki.nl with any questions.
+Please contact d.j.kloosterman@prinsesmaximacentrum.nl with any questions.
 
 
 # Downloading the data
